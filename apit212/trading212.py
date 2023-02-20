@@ -8,7 +8,6 @@ from log import log
 from helpers import *
 from time import sleep
 from constant import *
-from getpass import getpass
 from functools import wraps
 from threading import Thread
 from selenium import webdriver
