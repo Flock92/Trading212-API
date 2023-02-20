@@ -20,30 +20,6 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 
-import os
-import pickle
-import asyncio
-import datetime
-import threading
-from funcs import *
-from helpers import *
-from constant import *
-from logs import Log
-from time import sleep
-from typing import Tuple
-from getpass import getpass
-from functools import wraps
-from threading import Thread
-from selenium import webdriver
-from fake_useragent import UserAgent
-from selenium.common.exceptions import *
-from selenium.webdriver import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.select import Select
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions
-
 #STORED USER FUNCTIONS
 class Coro:
     pass 
