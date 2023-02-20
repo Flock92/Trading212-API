@@ -1,2 +1,2 @@
 # aPit212
-trading212 api
+Unofficial trading212 api
