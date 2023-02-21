@@ -1,8 +1,6 @@
-from main import *
+import apit212
 import asyncio
-from helpers import Data
 from time import sleep
-from logs import Log
 
 options = Options.Chrome_live_run()
 client = Client(options=options)
@@ -27,4 +25,4 @@ async def trade2():
         print("trade func 2")
         await asyncio.sleep(1)
 
-client.run(sleep_time=5)
+client.run()
