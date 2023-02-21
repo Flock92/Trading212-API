@@ -6,8 +6,7 @@ import pickle
 import asyncio
 import datetime
 import threading
-from funcs import *
-from helpers import *
+from util import *
 from constant import *
 from logs import Log
 from time import sleep
