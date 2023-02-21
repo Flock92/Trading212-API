@@ -8,8 +8,6 @@ client = Client(options=options)
 
 @client.event
 async def monitor_account():
-    data=Data()
-    print(data.getaccount())
     await printme()
 
 @client.event
