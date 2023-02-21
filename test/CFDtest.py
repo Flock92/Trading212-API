@@ -1,4 +1,4 @@
-import apit212
+from apit212 import trading212
 import asyncio
 from time import sleep
 
