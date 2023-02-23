@@ -6,7 +6,8 @@ import pickle
 import asyncio
 import datetime
 import threading
-from utils import *
+from funcs import *
+from helpers import *
 from constant import *
 from logs import Log
 from time import sleep
@@ -47,7 +48,7 @@ class Reboot:
         print(f"driver restarting: {msg}")
         if error == "COOKIES": os.remove('cookies.pkl')
         driver.quit()
-        sleep(sleep_time)
+        sleep(10)
         start = Client(build)
         start.run()
     def hardreset(self, msg, error, sleep_time: float = 2.0):
@@ -343,17 +344,27 @@ class Client(object):
     def event(signum, frame):
         pass
 #RUN USER SCRIPT
+#async def event_loop():
+#    print("function started. . .")
+#    asyncio.run(Coro.monitor_account())
+    #await asyncio.gather(
+    #      Coro.monitor_account(),
+    #      Coro.trade(),
+    #      Coro.trade2()
+    #)
+
 async def event_loop():
+    print("loop started")
     loop = asyncio.get_event_loop()
     try:
-        f1 = asyncio.ensure_future(Coro.monitor_account())
-        f2 = asyncio.ensure_future(Coro.trade())
-        f3 = asyncio.ensure_future(Coro.trade2())
-        loop.run_forever([f1,f2,f3])
-    except Exception as em:
-        print(em)
+            task1 = asyncio.ensure_future(Coro.monitor_account())
+            task2 = asyncio.ensure_future(Coro.trade())
+            task3 = asyncio.ensure_future(Coro.trade2())
+            loop.run_forever(task1, task2, task3)
+    except KeyboardInterrupt:
+        pass
     finally:
-        return
+        return 0
     
 #async def event_loop():
 #    loop = asyncio.get_event_loop()
@@ -364,98 +375,118 @@ async def event_loop():
 #    loop.run_until_complete()
 #    loop.close()
 
-async def printme():
+def printme():
     print("called this function")
+    
 
-async def CFD_trade(symbol: str, name: str, trade: str, quantity: None, Pquantity: None, sleep_time: float=0.3):
+def CFD_trade(symbol: str, instrument_name: str, trade: str, quantity:float=None, Pquantity:float=None, sleep_time: float=1):
     print("CFD_TRADE STARTED")
-    #buy a instrument on CFD side of the platform
+    action = Elem(drive)
+    #OPEN MENU FOR NEW ORDERS & INPUT TICKER SYMBOL
     try:
         order_menu = drive.find_element(By.XPATH,f'{NEW_ORDER}')
         order_menu.click()
         drive.implicitly_wait(1)
     except Exception as em:
-        print(em)
+        print(f"order menu: {em}")
     try:
         drive.implicitly_wait(1)
         item = drive.find_element(By.XPATH,f'{SEARCH_INPUT_BAR}')
         item.clear()
         item.send_keys(symbol)
     except Exception as em:
-        print(em)
+        print(f"search input: {em}")
     #FIND ITEM FROM LIST AND VERIFY BY COMPARING COMPANY NAME.
-    sleep(sleep_time)
     try:
-        list_items = drive.find_elements(By.XPATH,f'{LIST}/descendant::div[@class="search-results-instrument"]')#data-qa-code search-results-instrument
-        print(f"started checking list {list_items}")
+        sleep(1)
+        list_items = drive.find_elements(By.XPATH,f'{LIST0}/descendant::div[@class="search-results-instrument"]')#data-qa-code search-results-instrument
+        print(f"started checking list: {list_items}")
         for i in list_items:
             txt = i.text
-            if name in txt:
+            print(txt)
+            if instrument_name in txt:
                 i.click()
-                assert("found element")
                 break
             print("\n") 
     except Exception as em:
-        print(em)
+        print(f"list items: {em}")
     #SELECT TRADE TYPE
     if trade == "BUY":
         try:
             buy = drive.find_element(By.XPATH,f'{BUY_BUTTON}')
             buy.click()
         except Exception as em:
-            print(em)
+            print(f"BUY button: {em}")
     if trade == "SELL":
         try:
             sell = drive.find_element(By.XPATH,f'{SELL_BUTTON}')
             sell.click()
         except Exception as em:
-            print(em)  
+            print(f"SELL button: {em}")  
     #INPUT QUANTITY OF SHARES TO BUY
-    sleep(sleep_time)
+    sleep(1)
+    #INPUT QUANTITY BASED ON PERCENTAGE of 290.82px
     try:
-        quan_button = drive.find_element(By.XPATH,F"{QUANTITY_BUTTON}")
-        current_input = quan_button.text
-        quan_input = drive.find_element(By.XPATH,f"{QUANTITY}")
-        quan_input.click()
-        for i in current_input:
-            quan_input.send_keys(Keys.BACK_SPACE)
-        quan_input.send_keys("value", quantity)
+        quantity = drive.find_element(By.XPATH,f'{QUANTITY_SLIDER_RIGHT}').click()
     except Exception as em:
-        print(em)
+        print(f"quantity_right_button: {em}")
+    try:
+        quan_button = drive.find_element(By.XPATH,f"{QUANTITY}")
+        current_input = quan_button.text
+        print(current_input)
+    except Exception as em:
+        print(f"quantity element: {em}")
+    #INPUT QUANTITY BUY SET AMMOUNT.
+    ##try:
+    ##    quan_button = drive.find_element(By.XPATH,F"{QUANTITY_BUTTON}")
+    ##    current_input = quan_button.text
+    ##    quan_input = drive.find_element(By.XPATH,f"{QUANTITY}")
+    ##    quan_input.click()
+    ##    for i in current_input:
+    ##        quan_input.send_keys(Keys.BACK_SPACE)
+    ##    quan_input.send_keys("value", quantity)
+    ##except AttributeError as em:
+    ##    print(f"exception caught: {em}")
+    ##except ElementClickInterceptedException as em:
+    ##    print(f"exception caught: {em}")
+    ##except NoSuchElementException as em:
+    ##    print(f"exception caught: {em}")
     #SET STOPLOSS
     try:
-        elem.click(SL, 0.5, 3, "stop lose")
+        action.click(SL, msg="stop loss")
     except Exception as em:
-        print(em)
+        print(f"stop loss button: {em}")
     #SET TAKEPROFIT
     try:
-        elem.click(TP, 0.5, 3, "take profit")
+        action.click(TP, msg="take profit")
     except Exception as em:
-        print(em)
+        print(f"take profit button: {em}")
     #SCROLL DOWN AND SET TP AND SL AMOUNT ------------------------------------------------------------------ FIX
     try:
         scroll = drive.find_element(By.XPATH,f"{SCROLL_ORDER_MENU}")
-        scroll.execute_script("window.scrollTo(10, Y)")
+        drive.execute_script("arguments[0].setAttribute('style', 'top:180px;')", scroll)                         #184.871
     except Exception as em:
-        print(em)
+        print(f"scroll: {em}")
     try:
+        sleep(sleep_time)
         tp_amount = drive.find_element(By.XPATH,f"{SET_TP_AMMOUNT}")
-        elem.rme_input(drive, SET_TP_AMMOUNT)
+        action.rme_input(drive, SET_TP_AMMOUNT)
     except Exception as em:
-        print(em)
+        print(f"scroll: {em}")
     try:
+        sleep(sleep_time)
         tp_amount = drive.find_element(By.XPATH,f"{SET_SL_AMMOUNT}")
-        elem.rme_input(drive, SET_SL_AMMOUNT)
+        action.rme_input(drive, SET_SL_AMMOUNT)
     except Exception as em:
-        print(em)
+        print(f"scroll: {em}")
     #COMFIRM ORDER
     try:
         execute = drive.find_element(By.XPATH,f"{CONFIRM_ORDER}")
         execute.click()
     except Exception as em:
-        print(em)   
+        print(f"scroll: {em}")
 #CLOSE NAME POSITION (PROFIT OR LOSS)
-async def CFD_close(name: str, distance: float):
+def CFD_close(name: str, distance: float):
     #close all positions when results pass a percentage
     i = 1
     while i == 1:
@@ -491,7 +522,7 @@ async def CFD_close(name: str, distance: float):
     except Exception as em:
         print(em)
 #ADD TO THE MAIN WATCH LIST (LATER I WILL CREATE A FUNCTION THAT MONITORS ALL THE STOCKS ON THE WATCH LIST)           
-async def CFD_add_list(_symbols):
+def CFD_add_list(_symbols):
     chart_tabs = drive.find_elements(By.XPATH,f'{CHART_TABS}/descendant::div[@class="trading-chart-tab-item-container"]')
     tab = chart_tabs
     print(tab)
@@ -521,7 +552,7 @@ async def CFD_add_list(_symbols):
         except Exception as em:
             print(em)
 #SET RULES TO CLOSE OPEN POSISTIONS
-async def CFD_close_open(sell_price: float = 10, sleep_time: float=1.0, on: bool = True):
+def CFD_close_open(sell_price: float = 1, sleep_time: float=1.0, on: bool = True):
     while on == True:
         try:
             list_items = drive.find_elements(By.XPATH,f'{OPEN_POSISTION_LIST}/descendant::div[@class="positions-table-item"]') #/descendant::div[@class="positions-table-item"]
@@ -532,7 +563,7 @@ async def CFD_close_open(sell_price: float = 10, sleep_time: float=1.0, on: bool
     #0 = instrument / 1 = Quantity / 2 = Driection / 3 = price / 4 = Current_price / 5 = TP / 6 = SL / 7 = Margin / 8 = Result
     #try:
     sleep(sleep_time)
-    while on == True:
+    while True:
         for i in list_items:
                 txt = i.text
                 option = txt.split()
@@ -571,4 +602,4 @@ async def CFD_close_open(sell_price: float = 10, sleep_time: float=1.0, on: bool
                         except Exception as em:
                             print(em)
                         print(f'closed {position}')
-                        await asyncio.sleep()
+                        #await asyncio.sleep()
