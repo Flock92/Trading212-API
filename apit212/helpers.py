@@ -6,7 +6,6 @@ from selenium.common.exceptions import *
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from constant import LIVE_RESULTS as LR, FREE_FUNDS as FF, BLOCKED_FUNDS as BF, ACCOUNT_STATUS as AS
-
 #SHARED DATA
 class Data():
     def __init__(self, *kwargs):
@@ -16,7 +15,6 @@ class Data():
             print(i)
     def getaccount(self):
         return self.value
-        
 #MONITOR ACCOUNT RUN THREADING 
 class Monitor:  
     def __init__(self, driver, **kwargs):
@@ -156,7 +154,6 @@ class Monitor:
                 pass
             #if log_in == True: log_in.click()
             sleep(sleep_time)
-            
 #HANDLE FILES
 class File:
     def delete_file(self, file_name):
@@ -169,7 +166,6 @@ class File:
         if new_value == None:
             msg = "no value avaliable to proccess"
             return 
-            
 #ELEMENT INTERACTION
 class Elem:
     def __init__(self, driver):
@@ -283,7 +279,6 @@ class Elem:
             print(f"exception caught: {em}")
         except TimeoutException as em:
             print(f"exception caught: {em}")
-            
 #SETUP TRADE ENV
 class Setup:
     def __init__(self, driver):
@@ -299,9 +294,15 @@ class Setup:
             menu = driver.find_element(By.XPATH,f"{DROP_MENU}").click()
             sleep(sleep_time)
             if platform == "PRACTICE":
-                practice = driver.find_element(By.XPATH,f"{PRACTICE}").click()
+                try:
+                    practice = driver.find_element(By.XPATH,f"{PRACTICE}").click()
+                except Exception as em:
+                    print(f"practice button: {em}")
             if platform == "REAL":
-                practice = driver.find_element(By.XPATH,f"{REAL}").click()
+                try:
+                    practice = driver.find_element(By.XPATH,f"{REAL}").click()
+                except Exception as em:
+                    print(f"real button: {em}")
         else:
             return 0
     def set_POS(self, default: bool = True,speed: float = 1, sleep_time: float = 2):
@@ -376,8 +377,7 @@ class Setup:
                 pass
             except NoSuchElementException as em:
                 pass
-                
-#MATH
+#MATHS
 class Algo:
     def percent(start_price, increase):
         base = increase/100
