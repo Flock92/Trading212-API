@@ -44,6 +44,7 @@ FREE_FUNDS = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[2]/div[2]/div[4]/div[2
 BLOCKED_FUNDS = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[2]/div[2]/div[4]/div[3]/div[2]' #xpath
 MARGIN_INDICATORS = '//*[@id="app"]/div[5]/div[2]/div[2]/div/div[2]/div[2]/div[4]/div[4]/div/div/div/div' #xpath
 #watch list
+SCROLL_DOWN_BAR = '//*[@id="app"]/div[4]/div/div[2]/div/div[2]/div[2]/div[3]/div/div[2]/div/div[2]/div' #STYLE  height: 20px; top: 13.4645px;
 OPEN_POSISTION_LIST = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[2]/div[1]/div/div[1]/div/div[3]/div'
 ADD_TICKER_LAYOUT = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[1]/div[1]/div[2]/div[2]'
 SPLIT_VIEW = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[1]/div[5]/div/div/div/div/div[1]/div[2]'
@@ -53,6 +54,7 @@ ADD_TICKER2 = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[1]/div[1]/div[1]/div[
 CLOSE_SEARCH = '//*[@id="app"]/div[4]/div/div[2]/div/div[1]/div[2]'
 LAYOUT_MENU = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[1]/div[1]/div[2]/div'
 CHART_TABS = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[1]/div[1]/div[1]/div[2]'
+BUY_SCROLL_BAR = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div[3]/div' #STYLE height: 198.032px; top: 0px;
 #order positions
 ACCESS_DENIED = '/html/body/div[2]/p[1]'
 ACCESS_DENIED_REF = '/html/body/div[2]/p[3]'
@@ -68,7 +70,8 @@ CHECK_USER = '//*[@id="app"]/div[5]/div[1]/div/div[2]/div[3]/div/div[1]/div[1]'
 COOKIES = '//*[@id="__next"]/main/div[2]/div/div[2]/div[2]/div[2]/div[1]'
 LOGIN = '//*[@id="__next"]/header/div/div/div[2]/div[1]/div[2]/p'
 #dropdown menu
-PRACTICE = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[9]/div[1]/div'
+PRACTICE = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[9]/div[1]'
+#PRACTICE = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[9]/div[1]/div'
 REAL = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[6]/div[1]/div'
 ACCOUNT_PRACTICE = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[9]/div[1]/div' #class (real/practice) xpath=
 SETTINGS = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[9]/div[2]/div[1]'
@@ -76,6 +79,7 @@ LOG_OUT = '//*[@id="app"]/div[11]/div/div/div/div/div/div/div[9]/div[2]/div[2]'
 
 #TRADE ELEMENTS FOR CFD
 #buttons for buy/sell
+LIST0 = '//*[@id="app"]/div[4]/div/div[2]/div/div[2]/div[2]/div[3]/div/div[2]'
 LIST = '//*[@id="app"]/div[4]/div/div[2]/div/div[2]/div[2]/div[3]/div/div[2]/div'
 NEW_ORDER = '//*[@id="app"]/div[3]/div[2]/div[2]/div/div[2]/div[1]/div/div[1]/div/div[2]/div[1]' #xpath opens menu
 CLOSE_TRADING_MENU = '//*[@id="app"]/div[4]/div/div[2]/div/div[1]/div[2]'#xpath to close trade menu (use to test elements)
@@ -89,11 +93,14 @@ SELL_BUTTON = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[2]/div[1]/div[1]'#cl
 SELL_PRICE = 'price-sell' #class check the sell price on platform (from children get label class='formatted-price' children 1= currency symbol 2 & 3)
 BUY_BUTTON = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[2]/div[1]/div[2]'
 BUY_PRICE = 'price-buy'
+QUANTITY_SLIDER_RIGHT = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div/div/div[3]/div[3]'
+QUANTITY_SLIDER_LEFT = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div/div/div[3]/div[1]'
+QUANTITY_SLIDER = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div/div/div[3]/div[2]/div[3]' #STYLE left: 290.82px; max
 QUANTITY_BUTTON = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div[1]/div/div[1]/div[2]/div[2]'
 QUANTITY = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div/div/div[1]/div[2]/div[2]/div[2]/input' #xpath span displays amouth of shares
 QUANTITY2 = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div/div/div[1]/div[2]/div[2]/div[1]/div/span[2]' #span needs to be cleared.
 QUANTITY_SLIDER = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div[1]/div/div[2]/div[2]/div[4]' #class
-SCROLL_ORDER_MENU = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]'
+SCROLL_ORDER_MENU = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div[4]' #top: 184.871px;
 TP = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div/div/div[4]/div/div[2]' #xpath toggle button
 TP_RESULTS = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div[2]/div/div[4]/div[2]/div[3]/div[2]/div[2]/input' #xpath change value to for take profit
 SET_TP_AMMOUNT = '//*[@id="app"]/div[4]/div/div[2]/div/div/div[4]/div[2]/div/div[4]/div[2]/div[3]/div[2]/div[1]/div/span[2]'
