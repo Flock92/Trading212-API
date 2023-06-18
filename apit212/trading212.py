@@ -90,7 +90,6 @@ class Apit212:
             pass
 
         # Start up webdriver
-
         d = webdriver.Firefox(options=options)
 
         try:
