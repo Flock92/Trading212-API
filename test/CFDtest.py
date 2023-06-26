@@ -1,30 +1,16 @@
 from main import *
-import asyncio
-from helpers import Data
-from time import sleep
-from logs import Log
 
-options = Options.Chrome_live_run()
-client = Client(options=options)
+username = "flock92_@account.com"
+password = "password/"
 
+client = Apit212(username=username, password=password, mode='demo')
 
-@client.event
-async def monitor_account():
-    printme()
-    return
-
-@client.event
-async def trade():
-    CFD_close_open()
-    print("trade func 1")
-    await asyncio.sleep(1)
-    return
-
-@client.event
-async def trade2():
-    CFD_trade("TSLA", "Tesla", 'BUY', Pquantity=10)
-    print("trade func 2")
-    await asyncio.sleep(1)
-    return
-
-client.run(sleep_time=5)
+#print(client.auth_validate())
+#print(client.get_account())
+#print(client.get_funds())
+#print(client.get_instruments_info('TSLA'))
+#print(client.get_max_min('BT'))
+#print(client.limit_order('AAPL', 2, 120, 130))
+#print(client.market_order('BT', 1.20, 3000))
+#print(client.cancel_order(order_id)) # WILL DELETE PENDING LIMIT ORDERS WILL NEED TO GET THE POSITION ID
+#print(client.get_summary()) # GET POSITION ID & PPL
