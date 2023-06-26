@@ -1,4 +1,4 @@
-from main import *
+from apit212 import *
 
 username = "flock92_@account.com"
 password = "password/"
