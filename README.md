@@ -2,7 +2,7 @@
 
 This is a Pyhton based API using selenium and request. 
 
-Requirments
+## Requirments
 -----------
 * Selenium
 * Requests
