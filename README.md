@@ -1,6 +1,6 @@
 # Apit212
 
-This is a Pyhton based API using selenium and request. 
+This is a Pyhton based API using selenium and requests. 
 
 ## Requirments
 * Selenium
