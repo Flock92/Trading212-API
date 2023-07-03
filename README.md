@@ -16,7 +16,7 @@ pip install apit212
 
 ### Demo account: 
 
-```
+```py
 from apit212 import *
 
 Client = Apit212(username="flock92@account.api", password="pass******", mode="demo")
@@ -24,7 +24,7 @@ Client = Apit212(username="flock92@account.api", password="pass******", mode="de
 
 ### Live account:
 
-```
+```py
 from apit212 import *
 
 Client = Apit212(username="flock92@account.api", password="pass******", mode="live")
@@ -32,6 +32,13 @@ Client = Apit212(username="flock92@account.api", password="pass******", mode="li
 
 ## Usage
 
+### Get ask price
+
+This line of code will return the current ask price as a float.
+
+```ask_price = client.get_ask("TSLA")[0]['response']['price']```
+
+#### 
 
 ## Disclaimer
 
