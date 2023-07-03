@@ -8,10 +8,11 @@ setup(
     name="apit212",
     version="0.01",
     packages=find_packages(),
-    dependency=[
+    requires=[
         'requests',
         'selenium',
-        'getpass'
+        'getpass',
+        'constant'
     ],
     author="Flock92",
     author_email="stuwe_3000@outlook.com",
