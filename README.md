@@ -17,7 +17,7 @@ pip install apit212
 ### Demo account: 
 
 ```
-From apit212 import *
+from apit212 import *
 
 Client = Apit212(username="flock92@account.api", password="pass******", mode="demo")
 ````
@@ -25,7 +25,7 @@ Client = Apit212(username="flock92@account.api", password="pass******", mode="de
 ### Live account:
 
 ```
-From apit212 import *
+from apit212 import *
 
 Client = Apit212(username="flock92@account.api", password="pass******", mode="live")
 ````
