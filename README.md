@@ -35,6 +35,8 @@ Client = Apit212(username="flock92@account.api", password="pass******", mode="li
 
 ````
 
+---
+
 ## Usage
 
 ### Get Ask Price
