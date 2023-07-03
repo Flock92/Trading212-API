@@ -38,7 +38,7 @@ client = Apit212(username="flock92@account.api", password="pass******", mode="li
 ````
 ### Best Practice
 
-It's good practice to set up an env file to save sensitive informaton like your user name or password
+It's good practice to set up an env file to save sensitive informaton like your user name or password. *Here is a useful link* [.env](https://pypi.org/project/python-dotenv/)
 
 ```env
 
