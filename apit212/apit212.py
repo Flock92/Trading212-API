@@ -174,25 +174,24 @@ class Apit212:
         sleep(interval)
 
         # GET COOKIES
-        if isinstance(headers, dict):
-            cookies = headers
-        else:
-            cookies = d.get_cookies()
-
-        for cookie in cookies:
-            if cookie['name'] == f'TRADING212_SESSION_{mode.upper()}':
-                my_cookie = f"TRADING212_SESSION_{mode.upper()}={cookie['value']};"
-            else:
-                pass
-
         user_agent = d.execute_script("return navigator.userAgent;")
 
-        self.headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": user_agent,
-            "Cookie": f'{my_cookie}',
-        }
+        if isinstance(headers, dict):
+            self.headers = headers
+        else:
+            cookies = d.get_cookies()
+            for cookie in cookies:
+                if cookie['name'] == f'TRADING212_SESSION_{mode.upper()}':
+                    my_cookie = f"TRADING212_SESSION_{mode.upper()}={cookie['value']};"
+                else:
+                    pass
+
+            self.headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": user_agent,
+                "Cookie": f'{my_cookie}',
+            }
 
         self.logger.info(f'finished setup...{username}')
 
@@ -461,7 +460,3 @@ class Apit212:
         r = requests.post(f"{self.url}/rest/v1/account/reset-with-sum", headers=self.headers, data=json.dumps(payload))
 
         return r
-        r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions",
-                          headers=self.headers, data=json.dumps(payload))
-
-        return r.json()
