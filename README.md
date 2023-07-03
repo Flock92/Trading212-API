@@ -6,6 +6,32 @@ This is a Pyhton based API using selenium and requests.
 * Selenium
 * Requests
 * Python3
+* Firefox
+
+## Installation
+
+pip install apit212
+
+## Import
+
+### Demo account: 
+
+```
+From apit212 import *
+
+Client = Apit212(username="flock92@account.api", password="pass******", mode="demo")
+````
+
+### Live account:
+
+```
+From apit212 import *
+
+Client = Apit212(username="flock92@account.api", password="pass******", mode="live")
+````
+
+## Usage
+
 
 ## Disclaimer
 
