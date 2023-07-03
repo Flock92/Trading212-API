@@ -267,21 +267,21 @@ class Apit212:
         return r.json()
 
     # CANCEL ORDER
-    def close_position(self, order_id, quantity, current_price) -> dict:
+    def close_position(self, position_id, quantity, current_price) -> dict:
         """
         close open positions
-        :param order_id:
+        :param position_id:
         :param quantity:
         :param current_price:
         :return:
         """
 
         payload = {'coeff': {
-            'positionId': f'{order_id}',
+            'positionId': f'{position_id}',
             'quantity': quantity,
             'targetPrice': current_price}}
 
-        r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{order_id}",
+        r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{position_id}",
                             headers=self.headers, data=json.dumps(payload))
         return r.json()
 
@@ -369,13 +369,12 @@ class Apit212:
                     instrument: str,
                     quantity: float,
                     target_price: float,
-                    take_profit: float = None,
-                    stop_loss: float = None,
+                    take_profit: float,
+                    stop_loss: float,
                     notify: str = "NONE"):
         """the minimum requirement to submit a limit order is the instrument, quantity and target price.
         You can also set a take_profit and stop_loss limits. I would like to point out that this
-        function will only submit your order and will make no attempts to change any of the parameters. Also note that
-        take profit and stop loss are both set to None.
+        function will only submit your order and will make no attempts to change any of the parameters.
 
         :param instrument:
         :param quantity:
@@ -402,13 +401,12 @@ class Apit212:
                      instrument: str,
                      target_price: float,
                      quantity: int,
-                     limit_distance: float = None,
-                     notify: str = "NONE",
-                     stop_distance: int = None):
+                     limit_distance: float,
+                     stop_distance: int,
+                     notify: str = "NONE"):
         """the minimum requirement to submit a market order is the instrument, quantity and target price.
         You can also set a take_profit and stop_loss limits. I would like to point out that this
-        function will only submit your order and will make no attempts to change any of the parameters. Also note that
-        take profit and stop loss are both set to None.
+        function will only submit your order and will make no attempts to change any of the parameters.
 
         if an incorrect order is submitted you will get a code message returned.
         ie: {'code': 'BusinessException', 'context': {'max': 684, 'type': 'InsufficientFundsMaxBuy'},
