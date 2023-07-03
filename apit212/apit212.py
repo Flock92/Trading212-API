@@ -11,13 +11,16 @@ import json
 
 
 class Apit212:
+    headers = {}
+
     def __init__(
             self,
             username: str,
             password: str,
             timeout: int = 2,
             interval: float = 5.0,
-            mode: str = 'demo'):
+            mode: str = 'demo',
+            headers: dict = None):
         """login to t212 account to get credentials to run API
 
         :param username: trading212 account username
@@ -100,7 +103,11 @@ class Apit212:
         d.implicitly_wait(30)
 
         # START LOGIN PROCESS
-        while timeout > 0:
+        while True:
+            if isinstance(headers, dict) or timeout == 0:
+                break
+            else:
+                pass
             timeout -= 1
             try:
                 d.find_element(By.XPATH, f"{COOKIE_POPUP}").click()
@@ -167,7 +174,10 @@ class Apit212:
         sleep(interval)
 
         # GET COOKIES
-        cookies = d.get_cookies()
+        if isinstance(headers, dict):
+            cookies = headers
+        else:
+            cookies = d.get_cookies()
 
         for cookie in cookies:
             if cookie['name'] == f'TRADING212_SESSION_{mode.upper()}':
@@ -191,10 +201,10 @@ class Apit212:
         return self.headers
 
     # GET AUTH VALIDATE
-    def auth_validate(self):
+    def auth_validate(self) -> dict:
         """
 
-        :return: dict={'id': '********-****-****-****-************', 'accountId': ********, 'customerId': ********,
+        :return: {'id': '********-****-****-****-************', 'accountId': ********, 'customerId': ********,
         'tradingType': 'CFD', 'customerUuid': '********-****-****-****-************', 'frontend': 'WC4',
         'readyToTrade': True, 'deviceUuid': ''}
         """
@@ -205,7 +215,7 @@ class Apit212:
     def get_account(self) -> dict:
         """Get account info
 
-        :return: dict={'demoAccounts': [{'id': ********, 'type': 'DEMO', 'tradingType': 'CFD',
+        :return: {'demoAccounts': [{'id': ********, 'type': 'DEMO', 'tradingType': 'CFD',
         'customerId': ********, 'createdDate': '2023-01-17T03:20:48.000+00:00',
         'status': 'ACTIVE', 'registerSource': 'WC4', 'currencyCode': 'GBP', 'readyToTrade': True}],
         'liveAccounts': [{'id': ********, 'type': 'LIVE', 'tradingType': 'CFD', 'customerId': ********,
@@ -227,11 +237,10 @@ class Apit212:
         return r.json()
 
     # GET ORDER SIZE
-    def get_max_min(self, instrument):
+    def get_max_min(self, instrument) -> dict:
         """Get the min and max 'BUY' & 'SELL' for an instrument passed to this function.
-
         :param instrument:
-        :return: dict={'minBuy': 1.0, 'maxBuy': 4593.17,
+        :return: {'minBuy': 1.0, 'maxBuy': 4593.17,
         'minSell': 1.0, 'maxSell': 0.0, 'sellThreshold': 0.0, 'maxSellQuantity': 0}
         """
         params = {'instrumentCode': {instrument}}
@@ -241,7 +250,7 @@ class Apit212:
         return r.json()
 
     # CANCEL ORDER
-    def cancel_order(self, order_id):
+    def cancel_order(self, order_id) -> dict:
         """
 
         :param order_id:
@@ -258,8 +267,27 @@ class Apit212:
                             headers=self.headers, data=json.dumps(payload))
         return r.json()
 
+    # CANCEL ORDER
+    def close_position(self, order_id, quantity, current_price) -> dict:
+        """
+        close open positions
+        :param order_id:
+        :param quantity:
+        :param current_price:
+        :return:
+        """
+
+        payload = {'coeff': {
+            'positionId': f'{order_id}',
+            'quantity': quantity,
+            'targetPrice': current_price}}
+
+        r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{order_id}",
+                            headers=self.headers, data=json.dumps(payload))
+        return r.json()
+
     # GET ACCOUNT SUMMARY (GET POSITION ID)
-    def get_summary(self):
+    def get_summary(self) -> dict:
         """This function can be used along with a bot to get positionId's to manually close positions and get data on
         your accounts.
 
@@ -279,30 +307,76 @@ class Apit212:
 
         return r.json()
 
+    # GET LIST OF COMPANIES
+    def get_companies(self) -> list:
+        """
+        This function will return a list of tickers and their corresponding isin code.
+        :return: [{'ticker': 'TICK', 'isin': '*************'}]
+        """
+
+        r = requests.get(f"{self.url}/rest/companies", headers=self.headers)
+
+        return r.json()
+
     # GET TICKER INFORMATION
     def get_instruments_info(self, instrument: str) -> dict:
         """
-
+        This function returns information about the ticker.
         :param instrument:
-        :return: dict={'code': 'TSLA', 'type': 'STOCK', 'margin': 0.2,
+        :return: {'code': 'TSLA', 'type': 'STOCK', 'margin': 0.2,
         'shortPositionSwap': -0.06510720836211, 'longPositionSwap': -0.25863029163789,
         'tsSwapCharges': '1970-01-01T23:00:00.000+02:00', 'marginPercent': '20', 'leverage': '1:5'}
         """
         r = requests.get(f'{self.url}/v2/instruments/additional-info/{instrument}',
                          headers=self.headers)
 
-        print(r.status_code)
+        return r.json()
+
+    # GET INSTRUMENT INFORMATION
+    def get_order_info(self, instrument: str, quantity):
+        """
+
+        :param instrument:
+        :param quantity:
+        :return:
+        """
+        params = {'instrumentCode': f"{instrument}",
+                  'quantity': quantity,
+                  'positionId': 'null'}
+
+        r = requests.get(f"{self.url}/rest/v1/tradingAdditionalInfo", headers=self.headers, params=params)
+
+        return r.json()
+
+    # GET ASK PRICE FOR INSTRUMENT
+    def get_ask(self, instrument: str, _useaskprice: str = "false") -> list:
+        """
+
+        :param instrument:
+        :param _useaskprice:
+        :return: [{'request': {'ticker': '****', 'useAskPrice': False}, 'response':
+        {'timestamp': 1687852810000, 'price': 250.37, 'period': 'd1'}}]
+        """
+
+        payload = [{"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}]
+
+        r = requests.put(f'{self.url}charting/v1/watchlist/batch/deviations',
+                         headers=self.headers, data=json.dumps(payload))
+
         return r.json()
 
     # PLACE LIMIT ORDER
     def limit_order(self,
                     instrument: str,
-                    quantity: int,
-                    target_price: int,
-                    take_profit: int = None,
-                    stop_loss: int = None,
+                    quantity: float,
+                    target_price: float,
+                    take_profit: float = None,
+                    stop_loss: float = None,
                     notify: str = "NONE"):
-        """
+        """the minimum requirement to submit a limit order is the instrument, quantity and target price.
+        You can also set a take_profit and stop_loss limits. I would like to point out that this
+        function will only submit your order and will make no attempts to change any of the parameters. Also note that
+        take profit and stop loss are both set to None.
 
         :param instrument:
         :param quantity:
@@ -312,7 +386,10 @@ class Apit212:
         :param notify:
         :return:
         """
-        payload = {'quantity': quantity, 'targetPrice': target_price, 'takeProfit': take_profit, 'stopLoss': stop_loss,
+        payload = {'quantity': round(quantity, 1),
+                   'targetPrice': round(target_price, 2),
+                   'takeProfit': round(take_profit, 2),
+                   'stopLoss': round(stop_loss, 2),
                    'notify': notify}
 
         r = requests.post(f'{self.url}/rest/v2/pending-orders/entry-dep-limit-stop/{instrument}',
@@ -329,7 +406,14 @@ class Apit212:
                      limit_distance: float = None,
                      notify: str = "NONE",
                      stop_distance: int = None):
-        """
+        """the minimum requirement to submit a market order is the instrument, quantity and target price.
+        You can also set a take_profit and stop_loss limits. I would like to point out that this
+        function will only submit your order and will make no attempts to change any of the parameters. Also note that
+        take profit and stop loss are both set to None.
+
+        if an incorrect order is submitted you will get a code message returned.
+        ie: {'code': 'BusinessException', 'context': {'max': 684, 'type': 'InsufficientFundsMaxBuy'},
+        'message': 'InsufficientResourcesException'}
 
         :param instrument:
         :param target_price:
@@ -340,10 +424,43 @@ class Apit212:
         :return:
         """
 
-        payload = {'instrumentCode': f"{instrument}", 'limitDistance': limit_distance,
-                   'notify': f"{notify}", 'quantity': quantity,
-                   'stopDistance': stop_distance, 'targetPrice': target_price}
+        payload = {'instrumentCode': f"{instrument}",
+                   'limitDistance': limit_distance,
+                   'notify': f"{notify}",
+                   'quantity': quantity,
+                   'stopDistance': stop_distance,
+                   'targetPrice': target_price}
 
+        r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions",
+                          headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+
+    # ADD TRAILING STOP LOSS
+    def trailing_stop(self, position_id: str, distance: float, notify: str = "NONE"):
+        """
+        Add a trailing stop to you live positions.
+        :param position_id:
+        :param distance:
+        :param notify:
+        :return:
+        """
+
+        payload = {"ts": {"distance": distance}, "notify": f"{notify}"}
+
+        r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
+                         headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+
+    # RESET DEMO ACCOUNT
+    def _reset(self, account_id: int, amount: int, currency_code: str):
+        """"""
+        payload = {"accountId": account_id, "amount": amount, "currencyCode": f"{currency_code}", "reason": "settings"}
+
+        r = requests.post(f"{self.url}/rest/v1/account/reset-with-sum", headers=self.headers, data=json.dumps(payload))
+
+        return r
         r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions",
                           headers=self.headers, data=json.dumps(payload))
 
