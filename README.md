@@ -1,6 +1,6 @@
 # Apit212
 
-This is a Pyhton based API using selenium and requests to get insformation from the broker trading 212. Please note that either myself or trading212 take responsibility for the use of this API. 
+This is a Pyhton based API using selenium and requests to get insformation from the broker trading 212. Please note that either myself or trading212 take responsibility for the use of this API.
 
 ## Requirments
 
@@ -79,10 +79,11 @@ print(account)
 
 ```
 
-{'demoAccounts': [{'id': ********, 'type': 'DEMO', 'tradingType': 'CFD', 'customerId': ********, 'createdDate': '2023-01-17T03:20:48.000+00:00',
-'status': 'ACTIVE', 'registerSource': 'WC4', 'currencyCode': 'GBP', 'readyToTrade': True}], 'liveAccounts': [{'id': ********, 'type': 'LIVE',
-'tradingType': 'CFD', 'customerId': ********, 'createdDate': '2023-01-17T03:20:32.000+00:00', 'status': 'PENDING_ACTIVATION', 'registerSource': 'WC4',
-'currencyCode': 'GBP', 'readyToTrade': False}]}
+{'demoAccounts': [{'id': ********, 'type': 'DEMO', 'tradingType': 'CFD', 'customerId': ********,
+'createdDate': '2023-01-17T03:20:48.000+00:00', 'status': 'ACTIVE', 'registerSource': 'WC4',
+'currencyCode': 'GBP', 'readyToTrade': True}], 'liveAccounts': [{'id': ********, 'type': 'LIVE',
+'tradingType': 'CFD', 'customerId': ********, 'createdDate': '2023-01-17T03:20:32.000+00:00',
+'status': 'PENDING_ACTIVATION', 'registerSource': 'WC4', 'currencyCode': 'GBP', 'readyToTrade': False}]}
 
 ```
 
@@ -157,7 +158,19 @@ print(summary)
 
 ```py
 
-limit_order = client.limit_order(instrument="TSLA", quantity=5, target_price=129, take_profit=130, stop_loss=128)
+limit_order = client.limit_order(instrument="TSLA",
+quantity=5, target_price=129, take_profit=130, stop_loss=128)
+
+print(limit_order)
+
+```
+
+#### Example:
+
+```
+
+{'account': {'dealer': 'AVUSUK', 'positions': [{'positionId': '********-****-****-****-************',
+'humanId': '**********', 'created': '2023-07-03T18:17:46.563+03:00' ...
 
 ```
 
