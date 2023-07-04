@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apit212"
+version = "0.0.2"
+authors = [
+  { name="Flock92", email="stuwe_3000@outlook.com" },
+]
+
+description = "Unofficial trading212 API"
+readme = "README.md"
+requires-python = ">=3.10.11"
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Flock92/apit212"
+"Bug Tracker" = "https://github.com/Flock92/apit212/issues"
