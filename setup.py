@@ -6,13 +6,11 @@ long_description = """This is an unofficial API use to interact with the trading
 
 setup(
     name="apit212",
-    version="0.01",
+    version="0.0.7",
     packages=find_packages(),
     requires=[
         'requests',
         'selenium',
-        'getpass',
-        'constant'
     ],
     author="Flock92",
     author_email="stuwe_3000@outlook.com",
