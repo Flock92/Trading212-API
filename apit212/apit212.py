@@ -4,7 +4,7 @@ import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from getpass import getpass
-from constant import *
+from .apitconstant import *
 from time import sleep
 import logging
 import json
