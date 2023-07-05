@@ -1,7 +1,6 @@
-# Apit212
+# **Apit212**
 
-This is a Pyhton based API using selenium and requests to get insformation from the broker trading 212. Please note that either myself or trading212 take responsibility for the use of this API.
-
+This is a Pyhton based API using selenium and requests to get insformation from the broker trading 212 Please note that either myself or trading212 take responsibility for the use of this API.
 I will continue to work on this project and would appriciate any feedback. 
 
 ## Requirments
@@ -27,7 +26,7 @@ from apit212 import *
 
 client = Apit212(username="flock92@account.api", password="pass******", mode="demo")
 
-````
+```
 
 ### Live account:
 
@@ -37,7 +36,7 @@ from apit212 import *
 
 client = Apit212(username="flock92@account.api", password="pass******", mode="live")
 
-````
+```
 ### Best Practice
 
 It's good practice to set up an env file to save sensitive informaton like your user name or password. *Here is a useful link* [.env](https://pypi.org/project/python-dotenv/)
@@ -128,6 +127,7 @@ print(tsla_info)
 #### Console:
 
 ```bash
+
 {'code': 'TSLA', 'type': 'STOCK', 'margin': 0.2, 'shortPositionSwap': -0.07030593058663,
 'longPositionSwap': -0.27928156941337, 'tsSwapCharges': '1970-01-01T23:00:00.000+02:00',
 'marginPercent': '20', 'leverage': '1:5'}
@@ -162,9 +162,9 @@ The *get_ask* function will return the current ask price for the passed instrume
 
 ```py
 
+
 ask_price = client.get_ask("TSLA")[0]['response']['price']
 
-print(ask_price)
 
 ```
 
@@ -172,11 +172,12 @@ print(ask_price)
 
 The *get_companies* function will return companies currently listed on T212 & their respective isin ID.
 
+
 ```py
+
 
 companies = client.get_companies()
 
-print(companies)
 
 ```
 
@@ -207,6 +208,7 @@ The *market_order* function submit a market order and takes quantity, target_pri
 market_order = client.market_order(instrument="TSLA",
 quantity=5, target_price=129, take_profit=130, stop_loss=128)
 
+
 ```
 
 ### Cancel order
@@ -216,6 +218,7 @@ The *cancel_order* function will cancel a pending order it requires a orderID.
 
 cancel_order = client.cancel_order(order_id)
 
+
 ```
 
 ### Close Position
@@ -223,7 +226,9 @@ The *cancel_position* function will submit a request to cancel a open position.
 
 ```py
 
+
 cancel_position = client.close_position(position_id=market_order, quantity=market_order, current_price=current_price)
+
 
 ```
 
@@ -232,16 +237,19 @@ In apit212 you can save the headers which would allow you to run a request witho
 
 ```py
 
+
 client = Apit212(username="flock92@account.api", password="pass******", mode="live")
 
 headers = client.headers
 
 print(headers)
 
+
 ```
 Once you've saved your cookies you bypass the login stage by passing it to the header params as a dict.
 
 ```py
+
 
 headers = {'Accept': 'application/json',
            'Content-Type': 'application/json',
@@ -249,6 +257,7 @@ headers = {'Accept': 'application/json',
            'Cookie': 'TRADING212_SESSION_DEMO=***********;'}
 
 client = Apit212(username="flock92@account.api", password="pass******", headers=headers)
+
 
 ```
 
