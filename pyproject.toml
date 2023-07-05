@@ -4,19 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apit212"
-version = "0.0.2"
+version = "0.0.7"
 authors = [
-  { name="Flock92", email="stuwe_3000@outlook.com" },
+{ name= "Flock92", email= "stuwe_3000@outlook.com" },
 ]
+
+maintainers = [
+  {name = "Flock92", email = "stuwe_3000@outlook.com"}
+]
+
+keywords = ["trading", "trading212", "api", "trade", "flock92"]
 
 description = "Unofficial trading212 API"
 readme = "README.md"
-requires-python = ">=3.10.11"
+requires-python = ">=3.9"
 
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+]
+
+dependencies = [
+  "selenium>4.7.2",
+  "requests>2.28.2",
 ]
 
 [project.urls]
