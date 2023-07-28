@@ -1,5 +1,7 @@
 # this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
 
+# this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
+
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -198,6 +200,18 @@ class Apit212:
     # RETURNS HEADERS AND URL
     def __getitem__(self, key):
         return self.headers
+    
+    def get_live_price(self, instruments: list):
+        """
+        :param instruments:
+        :return:
+        """
+        payload = {
+        }
+        for instrument in instruments:
+            payload.update(dict({"ticker": instrument, "useAskPrice": "false"}))
+        r = requests.get(f'{self.url}/charting/v1/watchlist/batch/deviations', headers=self.headers,
+                         data=[json.dumps(payload)])
 
     # GET AUTH VALIDATE
     def auth_validate(self) -> dict:
@@ -251,18 +265,24 @@ class Apit212:
     # CANCEL ORDER
     def cancel_order(self, order_id) -> dict:
         """
-        cancel limit order using a order id
+
+        :param order_id:
+        :return: {'account': {'dealer': 'AVUSUK', 'positions': [{'positionId': '********-****-****-****-************',
+        'humanId': '**********', 'created': '2023-06-05T21:32:45.000+03:00', 'modified': None, 'averagePrice': 181.09,
+        'averagePriceConverted': 144.96174516, 'currentPrice': 186.45, 'limitPrice': None, 'stopPrice': None,
+        'value': 16047.62, 'investment': 15945.79, 'limitStopNotify': None, 'trailingStop': None,
+        'trailingStopPrice': None, 'trailingStopNotify': None, 'code': 'AAPL', 'margin': 3225.65, 'ppl': 461.33,
+        'quantity': 110.0, 'maxBuy': None, 'maxSell': None, 'maxOpenBuy': None, 'maxOpenSell': None, 'swap': -16.11,
+        'frontend': 'WC4', 'pplAdjustment': None, 'autoInvestQuantity': None, 'fxPpl': None}
         """
         payload = {'positionId': f'{order_id}'}
         r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/entry/{order_id}",
                             headers=self.headers, data=json.dumps(payload))
         return r.json()
-
+    
     # CANCEL ALL PENDING ORDERS
     def cancel_all_orders(self) -> dict:
-        """
-        cancel all pending limit orders.
-        """
+        """"""
         payload = []
         data = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
                              headers=self.headers, data=json.dumps(payload))
