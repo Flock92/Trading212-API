@@ -1,10 +1,11 @@
 # this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
 
-# this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
-
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from datetime import timedelta
+from datetime import datetime
+from datetime import timezone
 from getpass import getpass
 from .apitconstant import *
 from time import sleep
@@ -14,6 +15,7 @@ import json
 
 class Apit212:
     headers = {}
+    now = datetime.now(tz=timezone.utc)
 
     def __init__(
             self,
@@ -76,7 +78,7 @@ class Apit212:
         self.url = f'https://{mode}.trading212.com/'
         options = webdriver.FirefoxOptions()
         options.add_argument('--log-level=3')
-        options.headless = True
+        options.add_argument('-headless')
         my_cookie = None
 
         # Get login details if no information was passed.
@@ -201,17 +203,21 @@ class Apit212:
     def __getitem__(self, key):
         return self.headers
     
-    def get_live_price(self, instruments: list):
+    def live_price(self, instruments: list, _useaskprice: str = "false"):
         """
         :param instruments:
-        :return:
+        :return: 
         """
-        payload = {
-        }
+        payload = []
+
         for instrument in instruments:
-            payload.update(dict({"ticker": instrument, "useAskPrice": "false"}))
-        r = requests.get(f'{self.url}/charting/v1/watchlist/batch/deviations', headers=self.headers,
-                         data=[json.dumps(payload)])
+            payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
+
+        print(payload)
+        r = requests.put(f'{self.url}/charting/v1/watchlist/batch/deviations', headers=self.headers,
+                         data=json.dumps(payload))
+                         
+        return r.json()
 
     # GET AUTH VALIDATE
     def auth_validate(self) -> dict:
@@ -475,6 +481,154 @@ class Apit212:
                          headers=self.headers, data=json.dumps(payload))
 
         return r.json()
+    
+    # ADD A STOP LOSS OR TAKE PROFIT TO OPEN TRADES
+    def add_limits(self, position_id: str, TP: float = None, SL: float = None, notify: str = "NONE"):
+        """
+        """
+        # GET POSTION DIRECTION AND PRICE
+        data = self.get_position(position_id=position_id)
+
+        direction = data[0]["direction"]
+        price = data[0]["price"]
+
+        payload = {"tp_sl": {}, "notify": notify}
+
+        if direction == "buy":
+            if TP != None:
+                payload["tp_sl"].update(dict({"takeProfit": round(float(price) + TP, 2)}))
+            else:
+                pass
+
+            if SL != None:
+                payload["tp_sl"].update(dict({"stopLoss": round(float(price) - SL, 2)}))
+            else:
+                pass
+        elif direction == "sell":
+            if TP != None:
+                payload["tp_sl"].update(dict({"takeProfit": round(float(price) - TP, 2)}))
+            else:
+                pass
+
+            if SL != None:
+                payload["tp_sl"].update(dict({"stopLoss": round(float(price) + SL, 2)}))
+            else:
+                pass
+        else:
+            return {"Excaption": {"message": "failed to update tp_sl"}}
+        
+        r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}", 
+                         headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+    
+    # GET POSITION HISTORY
+    def all_position_hist(self, _tz: str = "01:00") -> dict:
+        """
+        
+        """
+
+        endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
+        startperiod = self.now.strftime("%Y-%m-%dT23:59:59.173+")
+        result = []
+
+        params = {
+            "page": 1,
+            "itemsPerPage": 10,
+            "from": f"{endperiod}{_tz}",
+            "to": f"{startperiod}{_tz}",
+            "filter": "all"
+        }
+
+        r = requests.get(f"{self.url}/rest/reports/positions",
+                        headers=self.headers, params=params)
+        limit = 0
+        while True:
+            if r.status_code == 403:
+                break
+            data = r.json()
+            result.append(data)
+            try:
+                nextpage = r.json()["nextPage"]
+                limit += 1
+                params = {
+                    "page": limit,
+                    "itemsPerPage": 10,
+                    "from": f"{endperiod}{_tz}",
+                    "to": f"{startperiod}{_tz}",
+                    "filter": "all"
+                }
+            except KeyError as em:
+                break
+            r = requests.get(f"{self.url}/rest/reports/positions",
+                        headers=self.headers, params=params)
+        
+        return result
+
+    # GET ORDERS
+    def all_order_hist(self, _tz: str = "01:00") -> dict:
+        """
+        """
+        
+        endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
+        startperiod = self.now.strftime("%Y-%m-%dT23:59:59.173+")
+        result = []
+
+        params = {
+            "page": 1,
+            "itemsPerPage": 10,
+            "from": f"{endperiod}{_tz}",
+            "to": f"{startperiod}{_tz}",
+            "filter": "all"
+        }
+        
+        r = requests.get(f"{self.url}/rest/reports/orders",
+                        headers=self.headers, params=params)
+        limit = 0
+        while True:
+            if r.status_code == 403:
+                break
+            data = r.json()
+            result.append(data)
+            try:
+                nextpage = r.json()["nextPage"]
+                limit += 1
+                params = {
+                    "page": limit,
+                    "itemsPerPage": 10,
+                    "from": f"{endperiod}{_tz}",
+                    "to": f"{startperiod}{_tz}",
+                    "filter": "all"
+                }
+            except KeyError as em:
+                break
+            r = requests.get(f"{self.url}/rest/reports/orders",
+                        headers=self.headers, params=params)
+        
+        return result
+
+    # GET OPEN POSISTIONS            
+    def get_position(self, position_id: str):
+        """
+        Returns give positions history [{'eventType': {'action': 'opened', 'source': 'MARKET_ORDER'}, 
+        'eventNumber': {'name': 'MO3053019640', 'id': '274187113', 'frontend': 'WC4'}, 'time': '2023-08-02T22:42:54.000+03:00', 
+        'direction': 'sell', 'quantity': 1.0, 'price': '105.29', 'avgQuantity': 1.0, 'avgPrice': '105.2900', 'modifiedDirection': 
+        'sell'}]
+
+        """
+    
+        r = requests.get(f"{self.url}/rest/reports/positionHistory/{position_id}", 
+                         headers=self.headers)
+
+        return r.json()
+
+    def validate_session(self):
+        """
+        """
+
+        r = requests.get(f"{self.url}validate-session", headers=self.headers)
+
+        return r.status_code
 
     # RESET DEMO ACCOUNT
     def _reset(self, account_id: int, amount: int, currency_code: str):
