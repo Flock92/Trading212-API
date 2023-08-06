@@ -1,7 +1,5 @@
 # this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
 
-# this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
-
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
