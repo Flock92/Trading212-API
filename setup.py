@@ -18,7 +18,7 @@ setup(
     long_description=long_description,
     license="MIT",
     keywords="trading api" "python3" "trading212" "API",
-    url="https://github.com/Flock92/aPit212",
+    url="https://github.com/Flock92/aPit212", "google-site-verification: google4b7598089ba28407.html",
     classifiers=[
         "Programming Language :: Python :: 3.9",
         "Operating System :: OS Independent",
