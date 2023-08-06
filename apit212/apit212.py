@@ -1,5 +1,7 @@
 # this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
 
+# this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
+
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -7,10 +9,12 @@ from datetime import timedelta
 from datetime import datetime
 from datetime import timezone
 from getpass import getpass
+from os import system, name
 from .apitconstant import *
 from time import sleep
 import logging
 import json
+import sys
 
 
 class Apit212:
@@ -19,12 +23,13 @@ class Apit212:
 
     def __init__(
             self,
-            username: str,
-            password: str,
+            username: str = None,
+            password: str = None,
             timeout: int = 2,
             interval: float = 5.0,
             mode: str = 'demo',
-            headers: dict = None):
+            headers: dict = None,
+            _beautiful: bool = True):
         """login to t212 account to get credentials to run API
 
         :param username: trading212 account username
@@ -38,8 +43,15 @@ class Apit212:
         :param mode: set to 'demo' by default
         :type interval: str
         """
+        # CLEAR CONSOLE
+        if _beautiful == True:
+            if name == "nt": # for windows 
+                system('cls')
+            else: # for mac and linux(here, os.name is 'posix')
+                system('clear')
 
         # START LOGGING
+        self._processing_flush(0, index=12) # progressbar
         logging.basicConfig(filename="apit212.log",
                             format='%(asctime)s :: %(levelname)s :: %(message)s',
                             filemode='w')
@@ -48,6 +60,7 @@ class Apit212:
         self.logger.setLevel(logging.DEBUG)
         self.logger.info(f'timeout: {timeout}, interval: {interval}, mode: {mode}')
 
+        self._processing_flush(1, index=12) # progressbar
         # CHECK PARAM'S
         if isinstance(username, str):
             pass
@@ -81,11 +94,25 @@ class Apit212:
         options.add_argument('-headless')
         my_cookie = None
 
+        self._processing_flush(3, index=12) # progressbar
+
         # Get login details if no information was passed.
         if username is None:
             username = input('username: ')
+            if _beautiful == True:
+                if name == "nt": # for windows 
+                    system('cls')
+                else: # for mac and linux(here, os.name is 'posix')
+                    system('clear')
+            self._processing_flush(4, index=12)
         elif password is None:
             password = getpass('password: ')
+            if _beautiful == True:
+                if name == "nt": # for windows 
+                    system('cls')
+                else: # for mac and linux(here, os.name is 'posix')
+                    system('clear')
+            self._processing_flush(4, index=12)
         else:
             pass
 
@@ -98,6 +125,8 @@ class Apit212:
         except Exception as em:
             self.logger.error(em)
 
+        self._processing_flush(4, index=12) # progressbar
+
         # CHECK URL
         if d.current_url != URL:
             self.logger.error("can not verify URL"), quit(d.close())
@@ -105,6 +134,8 @@ class Apit212:
             pass
 
         d.implicitly_wait(30)
+
+        self._processing_flush(5, index=12) # progressbar
 
         # START LOGIN PROCESS
         while True:
@@ -126,6 +157,8 @@ class Apit212:
             except Exception as em:
                 self.logger.error(f'failed to open login form: {em}')
                 continue
+
+            self._processing_flush(6, index=12) # progressbar
 
             # INPUT DETAILS
             try:
@@ -160,6 +193,8 @@ class Apit212:
                 self.logger.error(f'failed to verify username: {em}')
                 continue
 
+            self._processing_flush(7, index=12) # progressbar
+
             # VERIFY LOGIN
             if username in user_name:
                 self.logger.info('successfully logged into account.')
@@ -168,7 +203,9 @@ class Apit212:
                 self.logger.warning(f'failed logging attempt :: {timeout}')
                 pass
 
-        # SWITCH ACCOUNT
+        self._processing_flush(8, index=12) # progressbar
+
+        # SWITCH ACCOUNT TYPE
         try:
             d.get(f"https://{mode}.trading212.com")
             self.logger.info(f'switched to "{mode}"')
@@ -176,6 +213,8 @@ class Apit212:
             self.logger.error(f'failed to switch to {mode}: {em}')
 
         sleep(interval)
+
+        self._processing_flush(9, index=12) # progressbar
 
         # GET COOKIES
         user_agent = d.execute_script("return navigator.userAgent;")
@@ -199,35 +238,128 @@ class Apit212:
 
         self.logger.info(f'finished setup...{username}')
 
+        self._processing_flush(11, index=12) # progressbar
+
+        # CLOSE ALL DRIVERS
+        d.quit()
+
+        self._processing_flush(12, index=12) # progressbar
+
+        # PRINT CREDENTIALS TO CONFIRM LOGIN
+        user_info = self.get_account()[f"{mode}Accounts"][0]
+
+        print("\rSuccessfully connected to userID: ",user_info["id"],
+              "type:",user_info["type"],"tradingType",user_info["tradingType"])
+
     # RETURNS HEADERS AND URL
-    def __getitem__(self, key):
-        return self.headers
+    def __getitem__(self, key: str):
+        """
+        :key:
+        :return:
+
+        """
+        if key == "headers":
+            return self.headers
+        else:
+            return "No value 'key' passed"
     
+    def _processing_flush(self, n, index=5):
+        if n % index == 0:
+            sys.stdout.write(f"\rProcessing [{n}:{index}]%s " % (index * ""))
+        sys.stdout.write(f"\rProcessing [{n}:{index}]%s " % ((n % index)* "#"))
+        sys.stdout.flush()
+    
+    # FIND DETAILS OF A INSTRUMENT INCLUDING ISIN
+    def find_instrument(self, instrument: str):
+        """
+        :param instrument:
+        :return:
+
+        """
+        payload = [instrument]
+
+        try:
+            r = requests.post(f"{self.url}/rest/instrumentarium/v2/instruments/find", headers=self.headers,
+                              data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message": em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
+        return r.json()
+    
+    # SWITCH ACCOUNT BETWEEN EQUITY AND CFD
+    def switch(self):
+        """
+        :return:
+
+        """
+        accountID = self.auth_validate()["accountId"]
+
+        payload = {"accountId": accountID}
+
+        try:
+            r = requests.post(f"{self.url}/rest/v1/login/accounts/switch")
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+
+        return r.json()
+    
+    # GET THE CURRENT PRICE
     def live_price(self, instruments: list, _useaskprice: str = "false"):
         """
         :param instruments:
         :return: 
+
         """
         payload = []
 
         for instrument in instruments:
             payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
 
-        print(payload)
-        r = requests.put(f'{self.url}/charting/v1/watchlist/batch/deviations', headers=self.headers,
-                         data=json.dumps(payload))
+        try:
+            r = requests.put(f'{self.url}/charting/v1/watchlist/batch/deviations', headers=self.headers,
+                             data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
                          
         return r.json()
 
     # GET AUTH VALIDATE
     def auth_validate(self) -> dict:
         """
-
         :return: {'id': '********-****-****-****-************', 'accountId': ********, 'customerId': ********,
         'tradingType': 'CFD', 'customerUuid': '********-****-****-****-************', 'frontend': 'WC4',
         'readyToTrade': True, 'deviceUuid': ''}
         """
-        r = requests.get(f'{self.url}/auth/validate', headers=self.headers)
+
+        try:
+            r = requests.get(f'{self.url}/auth/validate', headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     # GET ACCOUNT DETAILS
@@ -241,35 +373,70 @@ class Apit212:
         'createdDate': '2023-01-17T03:20:32.000+00:00', 'status': 'PENDING_ACTIVATION', 'registerSource': 'WC4',
         'currencyCode': 'GBP', 'readyToTrade': False}]}
         """
-        r = requests.get(f'{self.url}/rest/v1/accounts', headers=self.headers)
+
+        try:
+            r = requests.get(f'{self.url}/rest/v1/accounts', headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     # GET ACCOUNT FUNDS
     def get_funds(self) -> dict:
         """Get account funds
 
-        :return: dict={'20434246': {'accountId': ********,
+        :return: dict={'*********': {'accountId': ********,
         'tradingType': 'CFD', 'currency': 'GBP', 'freeForWithdraw': 310.5,
         'freeForCfdTransfer': 0, 'total': 4954.12, 'lockedCash': {'totalLockedCash': 0, 'lockedCash': []}}}
         """
-        r = requests.get(f"{self.url}/rest/v2/customer/accounts/funds", headers=self.headers)
+
+        try:
+            r = requests.get(f"{self.url}/rest/v2/customer/accounts/funds", headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     # GET ORDER SIZE
-    def get_max_min(self, instrument) -> dict:
-        """Get the min and max 'BUY' & 'SELL' for an instrument passed to this function.
+    def get_max_min(self, instrument: str) -> dict:
+        """
+        Get the min and max 'BUY' & 'SELL' for an instrument passed to this function.
+
         :param instrument:
         :return: {'minBuy': 1.0, 'maxBuy': 4593.17,
         'minSell': 1.0, 'maxSell': 0.0, 'sellThreshold': 0.0, 'maxSellQuantity': 0}
+
         """
         params = {'instrumentCode': {instrument}}
-        r = requests.get(f"{self.url}/v1/equity/value-order/min-max",
-                         headers=self.headers,
-                         params=params)
+
+        try:
+            r = requests.get(f"{self.url}/v1/equity/value-order/min-max",
+                             headers=self.headers, params=params)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     # CANCEL ORDER
-    def cancel_order(self, order_id) -> dict:
+    def cancel_order(self, order_id: str) -> dict:
         """
 
         :param order_id:
@@ -282,24 +449,54 @@ class Apit212:
         'frontend': 'WC4', 'pplAdjustment': None, 'autoInvestQuantity': None, 'fxPpl': None}
         """
         payload = {'positionId': f'{order_id}'}
-        r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/entry/{order_id}",
-                            headers=self.headers, data=json.dumps(payload))
+
+        try:
+            r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/entry/{order_id}",
+                                headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
     
     # CANCEL ALL PENDING ORDERS
     def cancel_all_orders(self) -> dict:
         """"""
         payload = []
-        data = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
-                             headers=self.headers, data=json.dumps(payload))
 
-        r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/cancel",
-                            headers=self.headers, data=data)
+        try:
+            data = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
+                                 headers=self.headers, data=json.dumps(payload))
+        except ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
+        try:
+            r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/cancel",
+                                headers=self.headers, data=data)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
     # CANCEL ORDER
-    def close_position(self, position_id, quantity, current_price) -> dict:
+    def close_position(self, position_id: str, quantity: float, current_price: float) -> dict:
         """
         close open positions
         :param position_id:
@@ -313,8 +510,18 @@ class Apit212:
             'quantity': quantity,
             'targetPrice': current_price}}
 
-        r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{position_id}",
-                            headers=self.headers, data=json.dumps(payload))
+        try:
+            r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{position_id}",
+                                headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     # GET ACCOUNT SUMMARY (GET POSITION ID)
@@ -333,8 +540,17 @@ class Apit212:
         """
         payload = []
 
-        r = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary", headers=self.headers,
-                          data=json.dumps(payload))
+        try:
+            r = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary", headers=self.headers,
+                              data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
@@ -344,8 +560,16 @@ class Apit212:
         This function will return a list of tickers and their corresponding isin code.
         :return: [{'ticker': 'TICK', 'isin': '*************'}]
         """
-
-        r = requests.get(f"{self.url}/rest/companies", headers=self.headers)
+        try:
+            r = requests.get(f"{self.url}/rest/companies", headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
@@ -358,29 +582,47 @@ class Apit212:
         'shortPositionSwap': -0.06510720836211, 'longPositionSwap': -0.25863029163789,
         'tsSwapCharges': '1970-01-01T23:00:00.000+02:00', 'marginPercent': '20', 'leverage': '1:5'}
         """
-        r = requests.get(f'{self.url}/v2/instruments/additional-info/{instrument}',
-                         headers=self.headers)
+        try:
+            r = requests.get(f'{self.url}/v2/instruments/additional-info/{instrument}',
+                             headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
     # GET INSTRUMENT INFORMATION
-    def get_order_info(self, instrument: str, quantity):
+    def get_order_info(self, instrument: str, quantity: float):
         """
-
+        This function will return the buy and sell margins info and swap info
         :param instrument:
         :param quantity:
-        :return:
+        :return: {'buyMargin': 39.74, 'sellMargin': 39.74, 'buySwap': -0.2, 'sellSwap': -0.05}
         """
         params = {'instrumentCode': f"{instrument}",
                   'quantity': quantity,
                   'positionId': 'null'}
-
-        r = requests.get(f"{self.url}/rest/v1/tradingAdditionalInfo", headers=self.headers, params=params)
-
+        try:
+            r = requests.get(f"{self.url}/rest/v1/tradingAdditionalInfo", 
+                             headers=self.headers, params=params)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     # GET ASK PRICE FOR INSTRUMENT
-    def get_ask(self, instrument: str, _useaskprice: str = "false") -> list:
+    def get_deviations(self, instrument: str, _useaskprice: str = "false") -> list:
         """
 
         :param instrument:
@@ -391,8 +633,17 @@ class Apit212:
 
         payload = [{"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}]
 
-        r = requests.put(f'{self.url}charting/v1/watchlist/batch/deviations',
-                         headers=self.headers, data=json.dumps(payload))
+        try:
+            r = requests.put(f'{self.url}charting/v1/watchlist/batch/deviations',
+                             headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
@@ -421,10 +672,18 @@ class Apit212:
                    'takeProfit': round(take_profit, 2),
                    'stopLoss': round(stop_loss, 2),
                    'notify': notify}
-
-        r = requests.post(f'{self.url}/rest/v2/pending-orders/entry-dep-limit-stop/{instrument}',
-                          headers=self.headers,
-                          data=json.dumps(payload))
+        
+        try:
+            r = requests.post(f'{self.url}/rest/v2/pending-orders/entry-dep-limit-stop/{instrument}',
+                              headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
@@ -460,8 +719,17 @@ class Apit212:
                    'stopDistance': stop_distance,
                    'targetPrice': target_price}
 
-        r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions",
-                          headers=self.headers, data=json.dumps(payload))
+        try:
+            r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions",
+                              headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
@@ -477,14 +745,29 @@ class Apit212:
 
         payload = {"ts": {"distance": distance}, "notify": f"{notify}"}
 
-        r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
-                         headers=self.headers, data=json.dumps(payload))
+        try:
+            r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
+                             headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
     
     # ADD A STOP LOSS OR TAKE PROFIT TO OPEN TRADES
     def add_limits(self, position_id: str, TP: float = None, SL: float = None, notify: str = "NONE"):
         """
+        Add or change a stoploss and takeprofit on an open order.
+        :param position_id:
+        :param TP:
+        :param SL:
+        :param notify:
+        :return: 
         """
         # GET POSTION DIRECTION AND PRICE
         data = self.get_position(position_id=position_id)
@@ -517,15 +800,24 @@ class Apit212:
         else:
             return {"Excaption": {"message": "failed to update tp_sl"}}
         
-        r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}", 
-                         headers=self.headers, data=json.dumps(payload))
+        try:
+            r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}", 
+                             headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
         
         return r.json()
     
     # GET POSITION HISTORY
     def all_position_hist(self, _tz: str = "01:00") -> dict:
         """
-        
+        :return: 
         """
 
         endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
@@ -540,8 +832,18 @@ class Apit212:
             "filter": "all"
         }
 
-        r = requests.get(f"{self.url}/rest/reports/positions",
-                        headers=self.headers, params=params)
+        try:
+            r = requests.get(f"{self.url}/rest/reports/positions",
+                            headers=self.headers, params=params)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         limit = 0
         while True:
             if r.status_code == 403:
@@ -560,8 +862,17 @@ class Apit212:
                 }
             except KeyError as em:
                 break
-            r = requests.get(f"{self.url}/rest/reports/positions",
-                        headers=self.headers, params=params)
+            try:
+                r = requests.get(f"{self.url}/rest/reports/positions",
+                            headers=self.headers, params=params)
+            except requests.exceptions.ConnectionError as em:
+                return {"code":"connectionError", "message":em}
+            except requests.exceptions.Timeout as em:
+                return {"code": "requestTimeout", "message": em}
+            except requests.exceptions.HTTPError as em:
+                return {"code": "HTTPError", "message": em}
+            except requests.exceptions.RequestException as em:
+                return {"code": "Unknown", "message": em}
         
         return result
 
@@ -582,8 +893,12 @@ class Apit212:
             "filter": "all"
         }
         
-        r = requests.get(f"{self.url}/rest/reports/orders",
-                        headers=self.headers, params=params)
+        try:
+            r = requests.get(f"{self.url}/rest/reports/orders",
+                            headers=self.headers, params=params)
+        except ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        
         limit = 0
         while True:
             if r.status_code == 403:
@@ -610,23 +925,44 @@ class Apit212:
     # GET OPEN POSISTIONS            
     def get_position(self, position_id: str):
         """
-        Returns give positions history [{'eventType': {'action': 'opened', 'source': 'MARKET_ORDER'}, 
-        'eventNumber': {'name': 'MO3053019640', 'id': '274187113', 'frontend': 'WC4'}, 'time': '2023-08-02T22:42:54.000+03:00', 
-        'direction': 'sell', 'quantity': 1.0, 'price': '105.29', 'avgQuantity': 1.0, 'avgPrice': '105.2900', 'modifiedDirection': 
-        'sell'}]
-
+        :params position_id:
+        :return: [{'eventType': {'action': 'opened', 'source': 'MARKET_ORDER'}, 
+                'eventNumber': {'name': 'MO30****9640', 'id': '274****13', 'frontend': 'WC4'}, 'time': '2023-08-02T22:42:54.000+03:00', 
+                'direction': 'sell', 'quantity': 1.0, 'price': '105.29', 'avgQuantity': 1.0, 'avgPrice': '105.2900', 'modifiedDirection': 
+                'sell'}]
         """
-    
-        r = requests.get(f"{self.url}/rest/reports/positionHistory/{position_id}", 
-                         headers=self.headers)
+        try:
+            r = requests.get(f"{self.url}/rest/reports/positionHistory/{position_id}", 
+                             headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.json()
 
+    # VALIDATE SESSION
     def validate_session(self):
         """
+        :return: {'id': '*****-********-********-******', 'accountId': **********, 
+                'customerId': *********, 'tradingType': 'CFD', 
+                'customerUuid': '*****-********-********-******', 'frontend': 'WC4', 
+                'readyToTrade': True, 'deviceUuid': ''}
         """
-
-        r = requests.get(f"{self.url}validate-session", headers=self.headers)
+        try:
+            r = requests.get(f"{self.url}validate-session", headers=self.headers)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
 
         return r.status_code
 
@@ -638,3 +974,50 @@ class Apit212:
         r = requests.post(f"{self.url}/rest/v1/account/reset-with-sum", headers=self.headers, data=json.dumps(payload))
 
         return r
+    
+    def settings(self, instrument: str):
+        """
+        :param instrument:
+        :return: [{'code': 'TSLA', 'maxBuy': 4.7, 'maxMarketOrderBuy': 1.8, 'maxSell': 4.7, 
+                'maxOpenBuy': 1200.0, 'maxOpenSell': 1200.0, 'suspended': False, 'minTrade': 0.1}]
+        """
+
+        payload = [instrument]
+
+        try:
+            r = requests.post(f"{self.url}/rest/v2/account/instruments/settings", headers=self.headers,
+                              data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+    
+        return r.json()
+
+    def profit_losses(self, instrument: str):
+        """
+        :param instrument:
+        :return: {'data': [{'profit': 1.28223115578, 'loss': 1.267194029851}], 
+                'size': 1, 'positiveSum': 0, 'negativeSum': 0}
+        """
+
+        payload = [instrument]
+
+        try:
+            r = requests.post(f"{self.url}/rest/v2/trading/profit-losses", headers=self.headers,
+                              data=json.dumps(payload))   
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
+        return r.json()
+    
