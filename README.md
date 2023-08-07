@@ -241,15 +241,90 @@ print(summary)
 
 ```
 
-### Get Ask Price
+### Get live Price
 
-The *get_ask* function will return the current ask price for the passed instrument.
+The *live_price* function will return the current ask price for the passed instrument.
 
 ```py
 
+ticker = ["TSLA","AAPL","GOOG"]
 
-ask_price = client.get_ask("TSLA")[0]['response']['price']
+live_price = client.live_price(instruments=ticker)
 
+print(live_price)
+
+
+```
+
+#### console:
+
+```bash
+
+[{'ticker': 'TSLA', 'price': 253.49}, {'ticker': 'AAPL', 'price': 182.08}, {'ticker': 'GOOG', 'price': 128.44}]
+
+
+```
+
+### Get fast price
+
+The *fast_price* function will return the last qouted chart price as a float
+
+```py
+
+price = client.fast_price(instrument="TSLA")
+
+print(price)
+
+
+```
+
+#### console:
+
+```bash
+
+253.49
+
+```
+
+### Get chart data
+
+the *chart_data* function will return the lastest chart data for passed instrument
+
+```py
+
+chart = client.chart_data(instrument="TSLA")
+
+print(chart)
+
+```
+
+#### console:
+
+```bash
+
+[{'request': {'ticker': 'TSLA', 'period': 'ONE_MINUTE', 'size': 500, 'useAskPrice': False}, 'response': {'candles': [[1691152740000, 259.6, 259.97, 259.43, 259.49, 47], [1691152800000, 259.38, 259.94, 259.17, 259.56, 58], [1691152860000, 259.62, 260.34, 259.62, 260.19, 42]
+
+```
+
+### Get price deviations
+
+The *get_deviations* function will return price deviations
+
+```py
+
+ticker = ["TSLA","AAPL","GOOG"]
+
+deviations = client.get_deviations(instruments=ticker)
+
+print(deviations)
+
+```
+
+#### console:
+
+```bash
+
+[{'request': {'ticker': 'TSLA', 'useAskPrice': False}, 'response': {'timestamp': 1691136010000, 'price': 259.38, 'period': 'd1'}}, {'request': {'ticker': 'AAPL', 'useAskPrice': False}, 'response': {'timestamp': 1691136010000, 'price': 188.99, 'period': 'd1'}}, {'request': {'ticker': 'GOOG', 'useAskPrice': False}, 'response': {'timestamp': 1691136010000, 'price': 129.05, 'period': 'd1'}}]
 
 ```
 
@@ -263,6 +338,16 @@ The *get_companies* function will return companies currently listed on T212 & th
 
 companies = client.get_companies()
 
+print(companies)
+
+
+```
+
+#### console:
+
+```bash
+
+[{'ticker': 'SIGTl_EQ', 'isin': 'GB0008769993'}, {'ticker': 'PDYPY_US_EQ', 'isin': 'US3440441026'}...]
 
 ```
 
