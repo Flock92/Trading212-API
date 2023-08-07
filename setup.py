@@ -6,7 +6,7 @@ long_description = """This is an unofficial API use to interact with the trading
 
 setup(
     name="apit212",
-    version="1.0.3",
+    version="1.0.4",
     packages=find_packages(),
     requires=[
         'requests',
