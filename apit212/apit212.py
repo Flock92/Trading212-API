@@ -313,20 +313,16 @@ class Apit212:
 
         return r.json()
     
-    # GET THE CURRENT PRICE
-    def live_price(self, instruments: list, _useaskprice: str = "false"):
+    def fast_price(self, instrument: str, _useaskprice: str = "false") -> float:
         """
-        :param instruments:
-        :return: 
+        :param instrument:
+        :return: float
 
         """
-        payload = []
-
-        for instrument in instruments:
-            payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
-
+        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": "ONE_MINUTE", "size": 1}]}
         try:
-            r = requests.put(f'{self.url}/charting/v1/watchlist/batch/deviations', headers=self.headers,
+            r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
                              data=json.dumps(payload))
         except requests.exceptions.ConnectionError as em:
             return {"code":"connectionError", "message":em}
@@ -336,8 +332,84 @@ class Apit212:
             return {"code": "HTTPError", "message": em}
         except requests.exceptions.RequestException as em:
             return {"code": "Unknown", "message": em}
-                         
+        
+        price = r.json()
+        result = float(price[0]["response"]["candles"][0][-2])
+
+        return result
+        
+    # GET CHART DATA
+    def chart_data(self, instrument: str, _useaskprice: str = "false", 
+                   period: str = "ONE_MINUTE", size: int = 500) -> list:
+        """
+        :param instruments:
+        :param period: ONE_MINUTE, FIVE_MINUTES, TEN_MINUTES, ONE_MONTH
+        :param _useaskprice:
+        :param size:
+        :return: [{'request': {'ticker': 'TSLA', 'period': 'ONE_MINUTE', 'size': 500, 
+            'useAskPrice': False}, 'response': {'candles': [[1691152740000, 259.6, 259.97, 
+            259.43, 259.49, 47], [1691152800000, 259.38, 259.94, 259.17, 259.56, 58], 
+            [1691152860000, 259.62, 260.34, 259.62, 260.19, 42]
+
+        """
+        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": f"{period}", "size": size}]}
+        
+        try:
+            r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
+                             data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
+    
+    # GET THE CURRENT PRICE
+    def live_price(self, instruments: list, 
+                   _useaskprice: str = "false") -> dict:
+        """
+        :param instruments:
+        :param _useaskprice:
+        :return: [{'ticker': 'TSLA', 'price': 253.49}, 
+            {'ticker': 'AAPL', 'price': 182.08}, 
+            {'ticker': 'GOOG', 'price': 128.44}]
+
+        """
+        if isinstance(instruments, str) == True:
+            instruments = [f"{instruments}"]
+        else:
+            pass
+        
+        payload = {"candles":[]}
+
+        for instrument in instruments:
+            payload["candles"].append(dict({"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": "ONE_MINUTE", "size": 1}))
+       
+        try:
+            r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
+                             data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
+        result = []
+        data = r.json()
+        
+        for i in enumerate(data):
+            result.append(dict({"ticker":data[i[0]]["request"]["ticker"], "price": float(data[i[0]]["response"]["candles"][0][-2])}))
+                         
+        return result
 
     # GET AUTH VALIDATE
     def auth_validate(self) -> dict:
@@ -620,7 +692,7 @@ class Apit212:
         return r.json()
 
     # GET ASK PRICE FOR INSTRUMENT
-    def get_deviations(self, instrument: str, _useaskprice: str = "false") -> list:
+    def get_deviations(self, instruments: list, _useaskprice: str = "false") -> list:
         """
 
         :param instrument:
@@ -629,7 +701,16 @@ class Apit212:
         {'timestamp': 1687852810000, 'price': 250.37, 'period': 'd1'}}]
         """
 
-        payload = [{"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}]
+        if isinstance(instruments, str) == True:
+            instruments = [f"{instruments}"]
+        else:
+            pass
+        
+
+        payload = []
+
+        for instrument in instruments:
+            payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
 
         try:
             r = requests.put(f'{self.url}charting/v1/watchlist/batch/deviations',
@@ -950,6 +1031,7 @@ class Apit212:
                 'customerId': *********, 'tradingType': 'CFD', 
                 'customerUuid': '*****-********-********-******', 'frontend': 'WC4', 
                 'readyToTrade': True, 'deviceUuid': ''}
+
         """
         try:
             r = requests.get(f"{self.url}validate-session", headers=self.headers)
@@ -978,6 +1060,7 @@ class Apit212:
         :param instrument:
         :return: [{'code': 'TSLA', 'maxBuy': 4.7, 'maxMarketOrderBuy': 1.8, 'maxSell': 4.7, 
                 'maxOpenBuy': 1200.0, 'maxOpenSell': 1200.0, 'suspended': False, 'minTrade': 0.1}]
+
         """
 
         payload = [instrument]
@@ -994,6 +1077,53 @@ class Apit212:
         except requests.exceptions.RequestException as em:
             return {"code": "Unknown", "message": em}
     
+        return r.json()
+    
+    def additional_info(self, instrument: str):
+        """
+
+        :param instrument:
+        :return: {code: "STLD_US_CFD", type: "STOCK", margin: 0.2, shortPositionSwap: -0.026087881955975,…}
+
+        """
+
+        params = instrument
+
+        try:
+            r = requests.get(f"{self.url}/rest/v2/instruments/additional-info/", 
+                             headers=self.headers, params=params)
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
+        return r.json()
+    
+    def high_low(self, instrument: str):
+        """
+        :param instrument:
+        :return: {request: {ticker: "EURUSD"}, result: {high: 1.10339, low: 1.10002}}
+        
+        """
+
+        payload = {"ticker": f"{instrument}"}
+
+        try:
+            r = requests.post(f"{self.url}/charting/v2/batch/high-low",
+                              headers=self.headers, data=json.dumps(payload))
+        except requests.exceptions.ConnectionError as em:
+            return {"code":"connectionError", "message":em}
+        except requests.exceptions.Timeout as em:
+            return {"code": "requestTimeout", "message": em}
+        except requests.exceptions.HTTPError as em:
+            return {"code": "HTTPError", "message": em}
+        except requests.exceptions.RequestException as em:
+            return {"code": "Unknown", "message": em}
+        
         return r.json()
 
     def profit_losses(self, instrument: str):
