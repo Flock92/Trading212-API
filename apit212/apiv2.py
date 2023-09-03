@@ -151,6 +151,8 @@ class Apit212:
 
     mode = "demo"
 
+    _saveCookies = False
+
     def __init__(self, str = None, timeout: int = 2, interval: float = 0.5, Longinterval: float = 10) -> None:
 
         # handle files
@@ -255,6 +257,12 @@ class Apit212:
         :param password:
         """
         self.mode = mode
+
+        self.headers.update(dict({
+            "Host":f"{mode}.trading212.com",
+            "Origin":f"https://{mode}.trading212.com",
+            "Referer":f"https://{mode}.trading212.com/",
+        }))
 
         # clear console
         if _beauty == True:
@@ -391,10 +399,16 @@ class Apit212:
 
             if "LOGIN_TOKEN" in cookie["name"]:
                 self.session.cookies.set(cookie['name'], cookie['value'])
+            
+            if "_rdt_uuid" in cookie["name"]:
+                self.session.cookies.set(cookie["name"], cookie["value"])
 
         self.cookies = cookies
         self._cleanup_driver(driver=d)
-        self.fh.create_file(filename="_cookies", data=self.cookies)
+
+        if self._saveCookies == True:
+            self.fh.create_file(filename="_cookies", data=self.cookies)
+
         self.constant.end()
         self.session.headers = self.headers
 
@@ -523,6 +537,7 @@ class CFD(Apit212):
         for info in accountInfo:
             if info["tradingType"] == "CFD":
                 accountId = info["id"]
+                print(accountId)
             else:
                 pass
 
@@ -531,18 +546,29 @@ class CFD(Apit212):
 
         if str(authAccount) != str(accountId):
             # switch accound    
-            self.switch(account_id=accountId)
+            print(self.switch(account_id=accountId))
+
         else:
             pass
 
-    def switch(self, account_id: str) -> dict:
+    def switch(self, account_id: int) -> dict:
         """
         """
 
-        payload = {"accountId": account_id}
+        payload = {"accountId":int(account_id)}
 
-        r = self.s.post(url=f"{self.url}/rest/v1/login/accounts/switch",
-                        data=json.dumps(payload))
+        getuuid = self.auth_validate()
+
+        self.s.headers["X-Trader-Client"] = f"application=WC4, version=2.4.48, accountId={account_id}, dUUID={getuuid['customerUuid']}"
+
+        r = self.s.post(url=f"{self.url}/rest/v1/login/accounts/switch", data=json.dumps(payload))
+
+        self.s.cookies.clear_session_cookies()
+
+        cookies = r.cookies
+
+        for cookie in cookies:
+            self.s.cookies.set(cookie.name, cookie.value)
 
         return r.json()
 
@@ -575,7 +601,6 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/rest/v1/webclient/authenticate")
 
         return r.json()
-
 
     def get_timezone(self) -> dict:
         """
@@ -1068,14 +1093,23 @@ class Equity(Apit212):
         else:
             pass
 
-    def switch(self, account_id: str) -> dict:
+    def switch(self, account_id: int) -> dict:
         """
         """
+        payload = {"accountId":int(account_id)}
 
-        payload = {"accountId": account_id}
+        getuuid = self.auth_validate()
 
-        r = self.s.post(url=f"{self.url}/rest/v1/login/accounts/switch",
-                        data=json.dumps(payload))
+        self.s.headers["X-Trader-Client"] = f"application=WC4, version=2.4.48, accountId={account_id}, dUUID={getuuid['customerUuid']}"
+
+        r = self.s.post(url=f"{self.url}/rest/v1/login/accounts/switch", data=json.dumps(payload))
+
+        self.s.cookies.clear_session_cookies()
+
+        cookies = r.cookies
+
+        for cookie in cookies:
+            self.s.cookies.set(cookie.name, cookie.value)
 
         return r.json()
     
