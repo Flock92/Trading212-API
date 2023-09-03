@@ -1,49 +1,212 @@
 # this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
 # https://www.youtube.com/watch?v=_YVQN6_nkfs
 
-from typing import Any
-from requests import Session
-from requests import Response
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from bs4 import BeautifulSoup
+from requests import Session
+from selenium import webdriver
+from requests import Response
 from requests_html import HTML
+from datetime import timedelta
+from bs4 import BeautifulSoup
+from threading import Thread
+from apitconstant import *
+from typing import Any
 from time import sleep
 import pandas as pd
-from datetime import timedelta
+import pickle
+import logging
 import datetime
 import requests
+import time
 import json
 import js2py
+import sys
 import os
+
+# THINGS TO ADD TO THE SETUP
+
+"""
+https://live.trading212.com/rest/sunshine/v1/tokens get
+
+https://www.trading212.com/api/geolocation # returns global location
+
+https://62a7491e21ae5c00f273a9de.config.smooch.io/sdk/v2/integrations/62a7491e21ae5c00f273a9de/config GET RETURNS ID 629ee56e85859000f10378a7
+https://api.smooch.io/sdk/v2/apps/629ee56e85859000f10378a7/appusers/4ad24efd169b7779e936a7a7 GET 
+
+
+GET
+	https://www.trading212.com/_next/static/chunks/pages/cfd-ec974f600be3155c.js javascript
+"""
 
 
 class _Constant:
 
+    running = False
+    error = False
+    error_msg = ""
+    func_name = ""
+
     def __init__(self) -> None:
+
         pass
 
-class Apit212(_Constant):
+    def _start_flush(self, func_name: str) -> None:
+        try:
+            if self.thread.is_alive() == True:
+                self.end()
+        except AttributeError:
+            pass
+        self.func_name = func_name
+        self.running = True
+        self.thread = Thread(target=self._processing_flush)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def _processing_flush(self) -> None:
+        """
+        """
+        self.running = True
+
+        symbols = ["$=","+#","%^","|:",">£",";D"]
+        
+        sys.stdout.write(f"Processing {self.func_name} %s " % ("£"))
+
+        while self.running == True:
+            for s in symbols:
+                sys.stdout.write(f"\rProcessing {self.func_name} %s " % (f"{s}"))
+                sleep(0.2)
+
+        if self.error == True:
+            sys.stdout.write('\x1b[2K')
+            sys.stdout.write(f"\rFailed {self.func_name} {self.error_msg} %s \n" % (":(   "))
+            sys.stdout.flush()        
+        else:
+            sys.stdout.write('\x1b[2K')
+            sys.stdout.write(f"\rFinished {self.func_name} %s \n" % (":)   "))
+            sys.stdout.flush()
+
+    def end(self):
+
+        self.running = False
+
+        try:
+            while True:
+                if self.thread.is_alive() == True:
+                    sleep(0.1)
+                else:
+                    break
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+        try:
+            del self.thread
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+    def end_error(self, error_msg: str):
+
+        self.error_msg = error_msg
+
+        self.running = False
+
+        try:
+            while True:
+                if self.thread.is_alive() == True:
+                    sleep(0.5)
+                else:
+                    break
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+        try:
+            del self.thread
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+
+class Apit212:
 
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
         "Connection": "keep-alive",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
                }
     
+    cookies = ""
+    
     session = Session()
-    session.headers = headers
 
-    def __init__(self) -> None:
-        # retrun session values
-        pass
-      
-    def setup(self, username: str, password: str) -> None:
+    constant = _Constant()
+
+    username = ""
+
+    mode = "demo"
+
+    def __init__(self, str = None, timeout: int = 2, interval: float = 0.5, Longinterval: float = 10) -> None:
+
+        # handle files
+        self.fh = FileHandler()
+
+        # set variables
+        self.timeout = timeout
+        self.interval = interval
+        self.Longinterval = Longinterval
+
+        # setup logging file
+        logging.basicConfig(filename="apit212.log",
+                            format='%(asctime)s :: %(levelname)s :: %(message)s',
+                            filemode='w')
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.info(f'timeout: {timeout}, interval: {interval}')
+
+        self.user = self.username
+
+    def _reconnect(self) -> None:
         """
         """
-        self.user = username # required to re-establish connection
+        cookies = self.fh.read_file(filename="_cookies")
 
+        self.session.headers = self.headers
+
+        for cookie in cookies:
+            # Set trading212_session
+            if cookie['name'] == f'TRADING212_SESSION_{self.mode.upper()}':
+                self.session.cookies.set(f"TRADING212_SESSION_{self.mode.upper()}", cookie["value"])
+            
+            # Set customer_session
+            if cookie['name'] == "CUSTOMER_SESSION":
+                self.session.cookies.set("CUSTOMER_SESSION", cookie["value"])
+   
+        r = self.session.get(url=f"https://{self.mode}.trading212.com/")
+        
+        #print(r)
+        #print(requests.get(url="https://.trading212.com/auth/validate", headers=self.headers))
+
+        r = self.session.get(url=f"https://{self.mode}.trading212.com/auth/validate")
+
+        print(r)
+
+        if r.status_code == 200:
+            self.constant.end()
+            return r.status_code
+        else:
+            self.fh.delete_file(filename="_cookies")
+            self.build_driver()
+
+    def _get_token_experimental(self) -> dict:
+        """
+        """
         scriptUrl = "https://www.trading212.com/_next/static/chunks/pages/_app-fedf6306a52a9d19.js"
 
         self.url = f'https://www.trading212.com'
@@ -71,76 +234,182 @@ class Apit212(_Constant):
 
         soup = BeautifulSoup(content, "html.parser")
 
-        print(soup)
-
         r = self.session.post(url=f"{self.url}/api/authentication/authenticate")
-        print(r)
-
-        quit()
 
         token = soup.find("input", id="recaptcha-token")["value"]
 
         #token = str(input).split('"')
-
-        print(token)
-
         #print(soup.find("input", id="recaptcha-token")) # GET VALUE FOR LOGIN REQUEST
 
         # Login 
-        loginUrl = "https://www.trading212.com/api/authentication/login"
-
-        payload = {
-            "username":f"{username}",
-            "password":f"{password}",
-            "rememberMe":"true",
-            "recaptchaToken":f"{token}"
-            
-        }
-
-        #print(payload)
-
-        r = self.session.post(url=loginUrl, data=json.dumps(payload))
+        #loginUrl = "https://www.trading212.com/api/authentication/login"
 
         #r = requests.post(url=loginUrl, headers=self.headers,
         #                 data=json.dumps(payload), timeout=(3, 22))
         #
-        print(r.status_code)
-        print(r.headers)
+        return token
+             
+    def setup(self, username: str, password: str, _beauty: bool = True, mode: str = "demo") -> None:
+        """
+        :param username:
+        :param password:
+        """
+        self.mode = mode
 
-        d.close()
-        d.quit()
-        quit()
+        # clear console
+        if _beauty == True:
+            if os.name == "nt": # for windows 
+                os.system('cls')
+            else: # for mac and linux(here, os.name is 'posix')
+                os.system('clear')
 
-        # iframe title = reCAPTCHA
+        self.constant._start_flush("Setup")
 
-        my_cookie = None
-        #https://www.trading212.com/api/authentication/login
-        r = self.session.get(f"https://www.trading212.com")
-        headers = r.headers
+        # if cookies file exisit and session files exist try login
+        if self.fh.check_file(filename="_cookies") == True:
 
-        for key, value in headers.items():
-            self.headers.update(dict({key:value}))
-            #print("[",key,"]=[",value,"]")
+            self.username = username # required to re-establish connection
 
-        # Update headers in session
+            self._reconnect()
+
+        else:
+
+            self.build_driver()
+
+    def build_driver(self) -> None:
+        """
+        """
+
+        # Get the correct url
+        self.url = f'https://{self.mode}.trading212.com/'
+        # Setup webdriver
+        options = webdriver.FirefoxOptions()
+        options.add_argument('--log-level=3')
+        options.add_argument('-headless')
+
+        # start webdriver & get main page
+        d = webdriver.Firefox(options=options)
+        d.implicitly_wait(60)
+        d.get(url=URL)
+        if d.current_url == URL:
+            self.logger.info(f"Successfully loaded: {URL}")
+        else:
+            self.logger.error(f"Failed to load: {URL}")
+            errmsg = "Failed to load page."
+            self.constant.end_error(error_msg=errmsg)
+        while self.timeout > 0:
+            try:
+                d.find_element(By.XPATH, f"{COOKIE_POPUP}").click()
+                self.logger.info('cookie popup closed')
+            except Exception as em:
+                self.logger.error(f'failed to close cookies popup: {em}') 
+            else:
+                pass
+            sleep(self.interval)
+            try:
+                d.find_element(By.XPATH, f"{LOGIN_BUTTON}").click()
+                self.logger.info('login form opened')
+            except Exception as em:
+                self.logger.error(f'failed to open login form: {em}')
+            else:
+                pass
+            
+            try:
+                d.find_element(By.NAME, "email").send_keys(username)
+                self.logger.info('input username')
+            except Exception as em:
+                self.logger.error(f'failed to input username: {em}')
+            else:
+                pass
+                
+            try:
+                d.find_element(By.NAME, "password").send_keys(password)
+                self.logger.info('input password')
+            except Exception as em:
+                self.logger.error(f'failed to input password: {em}')
+            else:
+                pass
+                
+            try:
+                d.find_element(By.XPATH, f"{SUBMIT_BUTTON}").click()
+                self.logger.info('form submitted')
+            except Exception as em:
+                self.logger.error(f'failed submit form: {em}')
+            else:
+                pass
+            #sleep(self.Longinterval)
+            while True:
+                try:
+                    d.find_element(By.XPATH, '/html/body/div[1]/div[5]/div[1]')
+                    break
+                except Exception as em:
+                    self.logger.info('waiting for page to load')
+            attempt = 5
+            while attempt != 0:
+                d.implicitly_wait(5)
+                # VERIFY LOGIN
+                try:
+                    user_name = d.find_element(By.XPATH, f"{USER_NAME[1]}").text
+                    self.logger.info('username verified')
+                except Exception as em:
+                    self.logger.info(em)
+                try:
+                    user_name = d.find_element(By.XPATH, f"{USER_NAME[0]}").text
+                    self.logger.info('username verified')
+                except Exception as em:
+                    self.logger.info(em)
+                try:
+                    if str(username) == str(user_name):
+                        self.logger.info('successfully logged into account.')
+                        break
+                except Exception as em:
+                    self.logger.error(f'failed to verify username: {em}')
+                    attempt -= 1
+            if 'user_name' in locals():
+                break
+            self.timeout -= 1
+        
+        # Switch account type
+        while True:
+            d.get(f"https://{self.mode}.trading212.com")
+            current_url = d.current_url
+            if current_url == self.url:
+                break
+            else:
+                sleep(self.interval)
+
+        sleep(self.Longinterval)
+        # save cookies
+        cookies = d.get_cookies()
+        
+        for cookie in cookies:
+            if f"TRADING212_SESSION_{self.mode.upper()}" in cookie['name']:
+                self.session.cookies.set(cookie['name'], cookie['value'])
+            
+            if "CUSTOMER_SESSION" in cookie["name"]:
+                self.session.cookies.set(cookie['name'], cookie['value'])
+
+            if "LOGIN_TOKEN" in cookie["name"]:
+                self.session.cookies.set(cookie['name'], cookie['value'])
+
+        self.cookies = cookies
+        self._cleanup_driver(driver=d)
+        self.fh.create_file(filename="_cookies", data=self.cookies)
+        self.constant.end()
         self.session.headers = self.headers
 
-        # Make another requst
-        r = self.session.get(f"https://www.trading212.com", stream=True, allow_redirects=True)
-        headers = r.headers
-
-        print(r.headers)
-
-        page = r.text
-
-        #print(r.content)
-
-
-        # Check if headers exist
-
-    def get_companies(self) -> list:
+    def _cleanup_driver(self, driver, _end: bool = False) -> None:
         """
         """
+        driver.close()
+
+        driver.quit()
+
+        del driver
+
+        if _end == True:
+            quit()
+
 
 class FileHandler:
 
@@ -181,7 +450,7 @@ class FileHandler:
 
         if os.path.isfile(path) == True:
             data = pd.read_pickle(path)
-            return dict(data)
+            return data
         else:
             return {"code":"fileNotFound"}
 
@@ -222,104 +491,49 @@ class FileHandler:
         else:
             self.create_file(filename=filename, data=data)
 
-class  HandleResponse(object):
-
-    def __init__(self, response: Response) -> None:
-        """
-        Handles server responses
-        """
-
-        if response.status_code == 200:
-            self.return_data(data=response)
-
-        elif response.status_code == 500:
-            self.return_error(data=response)
-
-        else:
-            self.handle_exceptions(data=response)
-   
-    def return_data(self, data: requests.Response) -> json:
-        """
-        """
-        return data.json()
-    
-    def handle_exceptions(self, data: Response) -> str:
-        """
-        returns message regarding server response
-        """
-
-        print(data.status_code)
-        print(data.json())
-
-    def return_error(self, data: Response) -> None:
-        """
-        responses to 500 errors or unknown errors and print response and 
-        ends API
-        """
-
-        quit(print(data))
-
 
 class CFD(Apit212):
 
     now = datetime.datetime.now()
 
-    # session details required to re-establish a connection (could save to a doc)
-    account = {
-        "createdDate": "",
-        "currencyCode": "",
-        "customerId": int,
-        "id": int,
-        "lastSwitchedDate": "",
-        "readyToTrade": bool,
-        "registerSource": "",
-        "status": "",
-        "tradingType": "",
-        "type": ""
-        }
-
-    customer = {
-        "dealer": "",
-        "email": "",
-        "id": int,
-        "lang": "",
-        "registerDate": "",
-        "timezone": "",
-        "uuid": "",
-        }
-
-    session_info = {
-        "account":account,
-        "accountId": "",    # long form
-        "accountSession": "",   # long form   
-        "backupCode": "null",
-        "customer": customer,
-        "customerCookieName": "CUSTOMER_SESSION",
-        "customerId": "",
-        "email": "",
-        "loginToken": "null",
-        "rememberMeCookie":"null",
-        "serverTimestamp":"",
-        "subSystem":"",
-        "tradingType":""
-        }
-    
-    def __init__(self, mode: str = "demo") -> None:
-        self.mode = mode 
-        super().__init__("CFD")
-
-        self.user = self.user
-
-        self.hr = HandleResponse
+    def __init__(self, dealer: str = "AVUSUK", lang: str = "EN") -> None:
 
         self.fh = FileHandler()
 
-        self.url= f"https://{mode}.trading212.com"
+        super().__init__()
 
-        # switch accound
+        self.url= f"https://{self.mode}.trading212.com"
 
-
+        # Get sessions from main class
         self.s = self.session
+
+        # Check connection
+        validate = self.auth_validate()
+
+        if "code" in validate:
+            if validate["code"] == "AuthenticationFailed":
+                quit("Failed to validate session")
+        
+        # Get account username
+        self.user = self.user
+
+        # Get account info
+        accountInfo = self.get_account()[f"{self.mode}Accounts"]
+
+        for info in accountInfo:
+            if info["tradingType"] == "CFD":
+                accountId = info["id"]
+            else:
+                pass
+
+        # Confirm correct account
+        authAccount = self.auth_validate()["accountId"]
+
+        if str(authAccount) != str(accountId):
+            # switch accound    
+            self.switch(account_id=accountId)
+        else:
+            pass
 
     def switch(self, account_id: str) -> dict:
         """
@@ -330,7 +544,7 @@ class CFD(Apit212):
         r = self.s.post(url=f"{self.url}/rest/v1/login/accounts/switch",
                         data=json.dumps(payload))
 
-        return self.hr(r)
+        return r.json()
 
     def update_headers(self, headers: dict) -> None:
         """
@@ -342,149 +556,34 @@ class CFD(Apit212):
 
         self.fh.update_file("_cookies", headers)
 
-    def update_session_info(self, _dealer: str = "AVUSUK", _lang: str = "EN") -> None:
-        """
-        get information about session to enable the 
-        Apit212 to re-establish the session
-        """
-        filename = "_session"
-
-        # Get account data
-        accountData = self.get_account()[f"{self.mode}Accounts"]
-
-        # Get customer data
-        authData = self.auth_validate()
-
-        # Get timezone
-        timezone = self.get_timezone()
-
-        for key, value in accountData.items():
-            if key in self.account:
-                self.account[key] = value
-
-        self.customer["uuid"] = authData["customerUuid"]
-        self.customer["id"] = authData["customerId"]
-        self.customer["timezone"] = timezone["label"]
-        self.customer["dealer"] = _dealer
-        self.customer["registerDate"] = 
-        self.customer["lang"] = _lang # Could get this from selenium
-
-        # Get session data
-
-        self.session_info["email"] = self.user
-        self.session_info["accountId"] = authData["accountId"]
-        self.session_info["accountSession"] = authData["id"]
-        self.session_info["customerSession"] = authData["id"]
-        self.session_info["customerId"] = authData["customerUuid"]
-        self.session_info["type"] = accountData["type"]
-        self.session_info["subSystem"] = self.mode.upper()
-        self.session_info["sessionCookieName"] = f"TRADING212_SESSION_{self.mode.upper()}"
-
-        # save to file & variable
-        if self.fh.check_file(filename=filename) == True:
-            self.fh.overwrite_file(filename=filename, data=self.session_info)
-        else:
-            self.fh.create_file(filename=filename, data=self.session_info)
-
     def auth_validate(self) -> dict:
         """
         get information about session
         """
-        r = self.s.get(url=f"{self.url}//auth/validate")
+        r = self.s.get(url=f"{self.url}/auth/validate")
 
-        if r.status_code == 200:
-            data = dict(r.json())
-            # save values to a variable or file
-            for key, value in data.items():
-
-                pass
-            self.session_info
-
+        if r.status_code == 401:
+            return r.json()
         else:
-            # attempt to re-authenticate
-            self.authenticate()
-
-    def validate_session(self) -> dict:
-        """
-        """
-        r = self.s.get(url=f"{self.url}//auth/validate")
-
-        self.hr(r)
+            return r.json()
  
     def authenticate(self) -> dict:
         """
         re-establish session if session has ended and update headers
         """
 
-        # required values to re-establish connection
-        """
-        account : {id: 20434246, customerId: 11069497, type: "DEMO", createdDate: "2023-01-17T03:20:48.000+00:00",…}
-            createdDate: "2023-01-17T03:20:48.000+00:00"        :)
-            currencyCode: "GBP"                                 :)
-            customerId: 11069497                                :)
-            id: 20434246                                        :)
-            lastSwitchedDate: "2023-08-25T10:26:59.000+00:00"   :)
-            readyToTrade: true                                  :)
-            registerSource: "WC4"                               :)
-            status: "ACTIVE"                                    :)
-            tradingType: "CFD"                                  :)
-            type: "DEMO"                                        :)
+        r = self.s.get(url=f"{self.url}/rest/v1/webclient/authenticate")
 
-        accountId : 20434246
-        accountSession : "6c0d4b25-7240-4f18-a30b-f9d5a8bcd654"
-        backupCode : null
+        return r.json()
 
-        customer : {id: 11069497, uuid: "2bf01e27-3709-4579-98d2-6af6b5c9a9b2", email: "stuwe_3000@outlook.com",…}
-            dealer: "AVUSUK"
-            email: "stuwe_3000@outlook.com" 
-            id: 11069497    :)
-            lang: "EN"
-            registerDate: "2023-01-17T05:20:32+02:00"
-            timezone: "Europe/London"
-            uuid: "2bf01e27-3709-4579-98d2-6af6b5c9a9b2" :)
-        customerCookieName : "CUSTOMER_SESSION"
-        customerId : "2bf01e27-3709-4579-98d2-6af6b5c9a9b2"
-        customerSession : "6c0d4b25-7240-4f18-a30b-f9d5a8bcd654"
-        email : "stuwe_*&&&&&&&&.com"
-        loginToken : null
-        rememberMeCookie : null
-        serverTimestamp : "2023-08-29T16:04:47.625659532+03:00"
-        sessionCookieName : "TRADING212_SESSION_DEMO" 
-        subSystem : "DEMO"
-        tradingType : "CFD"
-        """
-
-        payload = {
-
-        }
-
-        r = self.s.get(url=f"{self.url}/rest/v1/webclient/authenticate", 
-                       data=json.dumps(payload))
-        
-        if r.status_code == 200: # if response is successful get new headers
-            
-            data = dict(r.json())
-
-            for key, value in data.items():
-                if key in self.headers:
-                    self.headers[key] = value
-                else:
-                    self.headers.__setitem__(key, value)
-
-        else:
-            self.hr(r)
 
     def get_timezone(self) -> dict:
         """
         """
 
-        # check "gmtLabel": "GMT +1" and get "actualZoneName": "Europe/London",
-        #"label": "London, Lisbon",
-        #"offset": 3600000,
-
         r = self.s.get(url=f"{self.url}/rest/v2/time-zones")
 
-        return self.hr(r)
+        return r.json()
     
     def get_account(self) -> dict:
         """
@@ -492,7 +591,7 @@ class CFD(Apit212):
         """
         r = self.s.get(url=f"{self.url}/rest/v1/accounts")
 
-        return self.hr(r)
+        return r.json()
 
     def get_funds(self) -> dict:
         """
@@ -501,7 +600,7 @@ class CFD(Apit212):
         """
         r = self.s.get(url=f"{self.url}/rest/v2/customer/accounts/funds")
 
-        self.hr(r)
+        return r.json()
 
     def get_max_min(self, instrument: str) -> dict:
         """
@@ -515,7 +614,7 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/v1/equity/value-order/min-max",
                        params=params)
         
-        self.hr(r)
+        return r.json()
 
     def get_summary(self) -> dict:
         """
@@ -526,7 +625,7 @@ class CFD(Apit212):
         r = self.s.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
                        data=json.dumps(payload))
         
-        self.hr(r)
+        return r.json()
 
     def get_companies(self) -> list:
         """
@@ -534,7 +633,7 @@ class CFD(Apit212):
 
         r = self.s.get(url=f"{self.url}/rest/companies")
         
-        self.hr(r)
+        return r.json()
 
     def get_instruments_info(self, instrument: str) -> dict:
         """
@@ -542,7 +641,7 @@ class CFD(Apit212):
 
         r = self.s.get(url=f"{self.url}/v2/instruments/additional-info/{instrument}")
         
-        self.hr(r)
+        return r.json()
 
     def get_order_info(self, instrument: str, quantity: float) -> dict:
         """
@@ -554,25 +653,23 @@ class CFD(Apit212):
         
         r = self.s.get(url=f"{self.url}/rest/v1/tradingAdditionalInfo")
         
-        self.hr(r)
+        return r.json()
 
-    def get_deviations(self, instrument: str,  _useaskprice: str = "false") -> dict:
+    def get_deviations(self, instruments: list and str,  _useaskprice: str = "false") -> dict:
         """
         """
-
-        if isinstance(instruments, str) == True:
-            instruments = [f"{instruments}"]
-        else:
-            pass
-        
+        if isinstance(instruments, str):
+            instruments = [instruments]
 
         payload = []
 
-        payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
+        for instrument in instruments:
+            payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
 
-        r = self.s.put(url=f"{self.url}charting/v4/batch/deviations")
+        r = self.s.put(url=f"{self.url}/charting/v1/watchlist/batch/deviations",
+                       data=json.dumps(payload))
         
-        self.hr(r)
+        return r.json()
 
     def get_position(self, position_id: str) -> dict:
         """
@@ -580,18 +677,7 @@ class CFD(Apit212):
 
         r = self.s.get(url=f"{self.url}/rest/reports/positionHistory/{position_id}")
         
-        self.hr(r)
-
-    def get_language(self) -> str:
-        """
-        """
-
-        r = self.s.get(url=f"{self.url}")
-
-        if r.status_code == 200:
-            return r.text
-        else:
-            return None
+        return r.json()
 
     def get_all_results(self, page_number: int) -> dict:
         """
@@ -605,7 +691,7 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/rest/reports/results",
                        params=params)
         
-        self.hr(r)
+        return r.json()
 
     def get_order_hist(self, page_number: int, _tz: str = "01:00") -> dict:
         """
@@ -625,7 +711,7 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/rest/reports/orders",
                        params=params)
         
-        self.hr(r)
+        return r.json()
 
     def get_position_hist(self, page_number: int,  _tz: str = "01:00") -> dict:
         """
@@ -644,7 +730,7 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/rest/reports/positions",
                        params=params)
 
-        self.hr(r)
+        return r.json()
 
     def set_limits(self, position_id: str, TP: float = None, SL: float = None, notify: str = "NONE") -> dict:
         """
@@ -692,7 +778,7 @@ class CFD(Apit212):
         r = self.s.put(url=f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
                        data=json.dumps(payload))
 
-        self.hr(r)
+        return r.json()
         
     def add_trailing_stop(self, position_id: str, distance: float, notify: str = "NONE"):
         """
@@ -712,14 +798,14 @@ class CFD(Apit212):
         elif direction == "sell":
             distance = distance*-1
         else:
-            return 
+            return {"code":"noDirection"}
 
         payload = {"ts": {"distance": distance}, "notify": f"{notify}"}
 
         r = self.s.put(url=f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
                        data=json.dumps(payload))
         
-        self.hr(r)
+        return r.json()
 
     def fundamentals(self, instrument: str, language: str = "en") -> dict:
         """
@@ -733,7 +819,7 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/rest/companies/v2/fundamentals",
                        params=params)
         
-        self.hr(r)
+        return r.json()
 
     def profit_losses(self, instrument: str) -> dict:
         """
@@ -744,7 +830,7 @@ class CFD(Apit212):
         r = self.s.post(url=f"{self.url}/rest/v2/trading/profit-losses",
                        data=json.dumps(payload))
         
-        self.hr(r)
+        return r.json()
 
     def high_low(self, instrument: str) -> dict:
         """
@@ -755,19 +841,15 @@ class CFD(Apit212):
         r = self.s.post(url=f"{self.url}/charting/v2/batch/high-low",
                        data=json.dumps(payload))
         
-        self.hr(r)
+        return r.json()
 
     def additional_info(self, instrument: str) -> dict:
         """
         
         """
-
-        params = instrument
-
-        r = self.s.get(url=f"{self.url}/rest/v2/instruments/additional-info/",
-                       params=params)
+        r = self.s.get(url=f"{self.url}/rest/v2/instruments/additional-info/{instrument}")
         
-        self.hr(r)
+        return r.json()
 
     def settings(self, instrument: str) -> dict:
         """
@@ -777,7 +859,7 @@ class CFD(Apit212):
         r = self.s.post(url=f"{self.url}/rest/v2/account/instruments/settings",
                        data=json.dumps(payload))
         
-        self.hr(r)
+        return r.json()
 
     def market_order(self,
                      instrument: str,
@@ -799,7 +881,7 @@ class CFD(Apit212):
         r = self.s.get(url=f"{self.url}/rest/v2/trading/open-positions",
                        data=json.dumps(payload))
         
-        return self.hr(r)
+        return r.json()
 
     def limit_order(self,
                      instrument: str,
@@ -819,7 +901,7 @@ class CFD(Apit212):
         r = self.s.post(url=f"{self.url}/rest/v2/pending-orders/entry-dep-limit-stop/{instrument}",
                        data=json.dumps(payload))
 
-        return self.hr(r)
+        return r.json()
     
     def close_position(self, position_id: str, current_price: float) -> dict:
         """
@@ -839,7 +921,7 @@ class CFD(Apit212):
         r = self.s.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{position_id}",
                        data=json.dumps(payload))
 
-        return self.hr(r)
+        return r.json()
     
     def cancel_all_orders(self) -> dict:
         """
@@ -852,7 +934,7 @@ class CFD(Apit212):
         r = self.s.delete(url=f"{self.url}/rest/v2/pending-orders/cancel",
                                 headers=self.headers, data=data)
         
-        return self.hr(r)
+        return r.json()
     
     def cancel_order(self, order_id: str) -> dict:
         """
@@ -862,7 +944,7 @@ class CFD(Apit212):
         r = self.s.delete(url=f"{self.url}/rest/v2/pending-orders/entry/{order_id}",
                                 headers=self.headers, data=json.dumps(payload))
 
-        return self.hr(r)
+        return r.json()
     
     def _reset(self, account_id: int, amount: int, currency_code: str):
         """"""
@@ -874,7 +956,7 @@ class CFD(Apit212):
         r = self.s.post(f"{self.url}/rest/v1/account/reset-with-sum",
                         data=json.dumps(payload))
 
-        return self.hr(r)
+        return r.json()
         
     def fast_price(self, instrument: str,  _useaskprice: str = "false") -> float:
         """
@@ -907,7 +989,7 @@ class CFD(Apit212):
                              data=json.dumps(payload))
         
         if r.status_code == 200:
-            return self.hr(r)
+            return r.json()
         else:
             return None
     
@@ -949,11 +1031,193 @@ class CFD(Apit212):
 
 class Equity(Apit212):
 
-    def __init__(self, mode: str = "demo") -> None:
-        super().__init__("EQUITY")
-        
-        self.url= f"https://{mode}.trading212.com"
+    def __init__(self, dealer: str = "AVUSUK", lang: str = "EN") -> None:
 
-        print(self.session)
-        r = self.session.get(self.url)
-        print(r.headers)
+        self.fh = FileHandler()
+
+        super().__init__()
+
+        self.url= f"https://{self.mode}.trading212.com"
+
+        # Get sessions from main class
+        self.s = self.session
+
+        # Check connection
+        self.auth_validate()
+        
+        # Get account username
+        self.user = self.user
+
+        # Get account info
+        accountInfo = self.get_account()[f"{self.mode}Accounts"]
+
+        for info in accountInfo:
+            if info["tradingType"] == "EQUITY":
+                accountId = info["id"]
+                print(accountId)
+            else:
+                pass
+
+        # Confirm correct account
+        authAccount = self.auth_validate()["accountId"]
+
+        if str(authAccount) != str(accountId):
+            # switch accound    
+            print(self.switch(account_id=accountId))
+
+        else:
+            pass
+
+    def switch(self, account_id: str) -> dict:
+        """
+        """
+
+        payload = {"accountId": account_id}
+
+        r = self.s.post(url=f"{self.url}/rest/v1/login/accounts/switch",
+                        data=json.dumps(payload))
+
+        return r.json()
+    
+    def get_account(self) -> dict:
+        """
+        returns a dictionary containing account data
+        """
+        r = self.s.get(url=f"{self.url}/rest/v1/accounts")
+
+        return r.json()
+
+    def auth_validate(self) -> dict:
+        """
+        get information about session
+        """
+        r = self.s.get(url=f"{self.url}/auth/validate")
+
+        if r.status_code == 401:
+            return r.json()
+        else:
+            return r.json()
+ 
+    def authenticate(self) -> dict:
+        """
+        re-establish session if session has ended and update headers
+        """
+
+        r = self.s.get(url=f"{self.url}/rest/v1/webclient/authenticate")
+
+        return r.json()
+
+    def close(self, 
+                   instrument: str, 
+                   _useaskprice: str = "true", 
+                   period: str = "THIRTY_MINUTES", 
+                   size: int = 336) -> list:
+        
+        """
+        """
+        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": f"{period}", "size": size}]}
+        
+        r = self.s.put(f'{self.url}/charting/v3/candles/close', headers=self.headers,
+                             data=json.dumps(payload))
+        
+        if r.status_code == 200:
+            return r.json()
+        else:
+            return None
+
+    def add_cost(self, 
+                 instrument: str, 
+                 currency: str, 
+                 limitPrice: float,
+                 orderType: str,
+                 quantity: float,
+                 stopPrice: float,
+                 timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":currency,
+                   "limitPrice":limitPrice,"orderType":orderType,"quantity":quantity,
+                   "stopPrice":stopPrice,"timeValidity":timeValidity}
+        
+        r = self.s.post(url=f"{self.url}/rest/public/added-costs",
+                        data=json.dumps(payload))
+        
+        return r.json()
+    
+    def market_order(self, 
+                    instrument: str, 
+                    currency: str,
+                    quantity: float,
+                    timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":currency,
+                   "orderType":"MARKET","quantity":quantity,
+                   "timeValidity":timeValidity}
+        
+        r = self.s.post(url=f"{self.url}/rest/public/v2/equity/order",
+                        data=json.dumps(payload))
+        
+        return r.json()
+    
+    def limit_order(self, 
+                    instrument: str, 
+                    currency: str,
+                    quantity: float,
+                    limit_price: float,
+                    timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":
+                   currency,"limitPrice":limit_price,"orderType":"LIMIT",
+                   "quantity":quantity, "timeValidity":timeValidity}
+        
+        r = self.s.post(url=f"{self.url}/rest/public/v2/equity/order",
+                        data=json.dumps(payload))
+        
+        return r.json()
+  
+    def stop_limit(self, 
+                    instrument: str, 
+                    currency: str,
+                    quantity: float,
+                    limit_price: float,
+                    stop_price: float,
+                    timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":currency,
+                   "limitPrice":limit_price,"orderType":"STOP_LIMIT",
+                   "quantity":quantity,"stopPrice":stop_price,"timeValidity":timeValidity}
+
+        r = self.s.post(url=f"{self.url}/rest/public/v2/equity/order",
+                        data=json.dumps(payload))
+        
+        return r.json()
+    
+    def cancel_order(self,
+                     position_id: str) -> dict:
+        """
+        """
+
+        r = self.s.get(url=f"{self.url}/rest/public/v2/equity/order/{position_id}")
+        
+        return r.json()
+    
+    def min_max(self, instrument: str, currency: str) -> dict:
+        """
+        """
+
+        params = {"instrumentCode": instrument, "currencyCode": currency}
+
+        r = self.s.get(url=f"{self.url}/rest/v1/equity/value-order/min-max",
+                       params=params)
+        
+        return r.json()
+    
