@@ -1,819 +1,681 @@
-# this unofficial API was created by Flock92 originally made to automate my CFD trading on the trading212 platform
+# This script was created by flock92 to simplify using the trading212 api
 
 import requests
-from selenium import webdriver
-from selenium.webdriver.common.by import By
+import json
+from .Constant import *
+from time import sleep
 from datetime import timedelta
 from datetime import datetime
-from datetime import timezone
-from getpass import getpass
-from os import system, name
-from .apitconstant import *
-from time import sleep
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from threading import Thread
 import logging
-import json
 import sys
+import os
+from typing import Any
+import pandas as pd
+
+class _Constant:
+
+    running = False
+    error = False
+    error_msg = ""
+    func_name = ""
+    txt = ""
+
+    def __init__(self) -> None:
+        pass
+
+    def _start_flush(self, func_name: str) -> None:
+        try:
+            if self.thread.is_alive() == True:
+                self.end()
+        except AttributeError:
+            pass
+        self.func_name = func_name
+        self.running = True
+        self.thread = Thread(target=self._processing_flush)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def _processing_flush(self) -> None:
+        """
+        """
+        self.running = True
+
+        symbols = ["$=","+#","%^","|:",">£",";D"]
+        
+        sys.stdout.write(f"Processing {self.func_name} %s " % ("£"))
+
+        while self.running == True:
+            sys.stdout.write('\x1b[2K')
+            for s in symbols:
+                sys.stdout.write(f"\rProcessing {self.func_name} {self.txt} %s " % (f"{s}"))
+                sleep(0.2)
+
+        if self.error == True:
+            sys.stdout.write('\x1b[2K')
+            sys.stdout.write(f"\rFailed {self.func_name} {self.error_msg} %s \n" % (":(   "))
+            sys.stdout.flush()        
+        else:
+            sys.stdout.write('\x1b[2K')
+            sys.stdout.write(f"\rFinished {self.func_name} %s \n" % (":)   "))
+            sys.stdout.flush()
+
+    def end(self):
+
+        self.running = False
+
+        try:
+            while True:
+                if self.thread.is_alive() == True:
+                    sleep(0.1)
+                else:
+                    break
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+        try:
+            del self.thread
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+    def end_error(self, error_msg: str):
+
+        self.error_msg = error_msg
+
+        self.running = False
+
+        try:
+            while True:
+                if self.thread.is_alive() == True:
+                    sleep(0.5)
+                else:
+                    break
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+        try:
+            del self.thread
+        except UnboundLocalError as em:
+            pass
+        except AttributeError as em:
+            pass
+
+    def _update_txt(self, func_name: str) -> None:
+        """
+        """
+        self.txt = func_name
+
+
+class FileHandler:
+
+    directory = ""
+
+    def __init__(self) -> None:
+        pass
+    
+    def create_file(self, filename: str, data: dict) -> None:
+        """
+        Creates a new file.
+
+        :param filename:
+        :param data:
+        """
+        path = f"{self.directory}{filename}.csv"
+
+        pd.to_pickle(data, path)
+
+    def delete_file(self, filename: str) -> None:
+        """
+        Delete existing file:
+        
+        :param filename:
+        """
+        path = f"{self.directory}{filename}.csv"
+
+        if os.path.isfile(path) == True:
+            os.remove(path)
+
+    def read_file(self, filename: str) -> dict:
+        """
+        Read and exisitng pickled file.
+
+        :param filename:
+        :Returns dict:
+        """
+        path = f"{self.directory}{filename}.csv"
+
+        if os.path.isfile(path) == True:
+            data = pd.read_pickle(path)
+            return data
+        else:
+            return {"code":"fileNotFound"}
+
+    def update_file(self, filename: str, data: dict) -> None:
+        """
+        Adds a dictionary to an existing file
+
+        :param filename:
+        :param data:
+        """
+        path = f"{self.directory}{filename}.csv"
+
+        if os.path.isfile(path=path) == True:
+            file = self.read_file(filename=filename)
+            for key, value in data.items():
+                if key in file:
+                    file[key] = value
+                else:
+                    file.__setitem__(key, value)
+            
+            pd.to_pickle(file, path)
+
+        else:
+            print(f"fileNotFound! : {path}")
+
+    def check_file(self, filename: str) -> bool:
+        """
+        :param filename:
+        Returns a bool 
+        """
+        path = f"{self.directory}{filename}.csv"
+
+        return os.path.isfile(path=path) 
+    
+    def overwrite_file(self, filename: str, data: dict) -> None:
+        """
+        Overwrite exisitng files
+
+        :param filename:
+        :param data:
+        """
+        path = f"{self.directory}{filename}.csv"
+
+        if os.path.isfile(path=path) == True:
+            file = self.read_file(filename=filename)
+            file = data
+            pd.to_pickle(file, path)
+        else:
+            self.create_file(filename=filename, data=data)
 
 
 class Apit212:
-    headers = {}
-    now = datetime.now(tz=timezone.utc)
 
-    def __init__(
-            self,
-            username: str = None,
-            password: str = None,
-            timeout: int = 2,
-            interval: float = 5.0,
-            mode: str = 'demo',
-            headers: dict = None,
-            _beautiful: bool = True):
-        """login to t212 account to get credentials to run API
+    interval = 0.5
+    implicit = 30
+    delay = 10
+    directory = None
+    _saveCookies = False
 
-        :param username: trading212 account username
-        :type username: str
-        :param password: trading212 account password
-        :type password: str
-        :param timeout: login attempt limits
-        :type timeout: int
-        :param interval: adjust for slow internet connections
-        :type interval: float
-        :param mode: set to 'demo' by default
-        :type interval: str
-        """
-        # CLEAR CONSOLE
-        if _beautiful == True:
-            if name == "nt": # for windows 
-                system('cls')
-            else: # for mac and linux(here, os.name is 'posix')
-                system('clear')
+    def __init__(self) -> None:
 
-        # START LOGGING
-        self._processing_flush(0, index=12) # progressbar
-        logging.basicConfig(filename="apit212.log",
-                            format='%(asctime)s :: %(levelname)s :: %(message)s',
-                            filemode='w')
-
+        self.headers = HEADERS
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
-        self.logger.info(f'timeout: {timeout}, interval: {interval}, mode: {mode}')
 
-        self._processing_flush(1, index=12) # progressbar
-        # CHECK PARAM'S
-        if isinstance(username, str):
-            pass
-        else:
-            username = None
+        self.fh = FileHandler()
+        self.constant = _Constant()
 
-        if isinstance(password, str):
-            pass
-        else:
-            password = None
+    def setup(self, username: str, password: str, mode: str, timeout: int = 2, _beauty: bool = True) -> None:
+        """
+        """
+        # clear console
+        if _beauty == True:
+            if os.name == "nt": # for windows 
+                os.system('cls')
+            else: # for mac and linux(here, os.name is 'posix')
+                os.system('clear')
 
-        if isinstance(timeout, int):
-            pass
-        else:
-            raise TypeError(':param timeout: invalid input')
+        self.mode = mode
 
-        if isinstance(interval, (int, float)):
-            pass
-        else:
-            raise TypeError(':param interval: invalid input')
+        self.constant._start_flush(func_name="Setup")
 
-        if isinstance(mode, str) and mode in ['demo', 'live']:
-            pass
-        else:
-            raise TypeError(':param mode: invalid input :: expected "demo" or "live" ')
+        # Get the correct url
+        self.url = f'https://{mode}.trading212.com'
 
-        # set variables for functions
-        self.url = f'https://{mode}.trading212.com/'
-        options = webdriver.FirefoxOptions()
-        options.add_argument('--log-level=3')
-        options.add_argument('-headless')
-        my_cookie = None
+        # Add to headers
+        self.headers.update(dict({
+            "Host":f"{mode}.trading212.com",
+            "Origin":f"https://{mode}.trading212.com",
+            "Referer":f"https://{mode}.trading212.com/",
+        }))
 
-        self._processing_flush(3, index=12) # progressbar
+        # Check existing headers
+        if self.fh.check_file(filename="_cookies") == True:
 
-        # Get login details if no information was passed.
-        if username is None:
-            username = input('username: ')
-            if _beautiful == True:
-                if name == "nt": # for windows 
-                    system('cls')
-                else: # for mac and linux(here, os.name is 'posix')
-                    system('clear')
-            self._processing_flush(4, index=12)
-        elif password is None:
-            password = getpass('password: ')
-            if _beautiful == True:
-                if name == "nt": # for windows 
-                    system('cls')
-                else: # for mac and linux(here, os.name is 'posix')
-                    system('clear')
-            self._processing_flush(4, index=12)
-        else:
-            pass
+            # Check saved headers 
+            self._reconnect()
 
-        # STARTUP WEBDRIVER
-        d = webdriver.Firefox(options=options)
+        # If connection failed reconnects
+        if self.fh.check_file(filename="_cookies") == False: 
 
-        try:
+            # Setup webdriver
+            options = webdriver.FirefoxOptions()
+            options.add_argument('--log-level=3')
+            options.add_argument('-headless')
+
+            # start webdriver & get main page
+            self.constant._update_txt(func_name="Selenium")
+
+            d = webdriver.Firefox(options=options)
+
             d.get(url=URL)
-            self.logger.info(msg=f'successfully loaded {URL}')
-        except Exception as em:
-            self.logger.error(em)
 
-        self._processing_flush(4, index=12) # progressbar
+            d.implicitly_wait(self.implicit)
 
-        # CHECK URL
-        if d.current_url != URL:
-            self.logger.error("can not verify URL"), quit(d.close())
-        else:
-            pass
-
-        d.implicitly_wait(30)
-
-        self._processing_flush(5, index=12) # progressbar
-
-        # START LOGIN PROCESS
-        while True:
-            if isinstance(headers, dict) or timeout == 0:
-                break
+            if d.current_url == URL:
+                self.logger.info(f"Successfully loaded: {URL}")
             else:
-                pass
-            timeout -= 1
-            try:
-                d.find_element(By.XPATH, f"{COOKIE_POPUP}").click()
-                self.logger.info('cookie popup closed')
-            except Exception as em:
-                self.logger.error(f'failed to close cookies popup: {em}')
-                continue
-            sleep(interval)
-            try:
-                d.find_element(By.XPATH, f"{LOGIN_BUTTON}").click()
-                self.logger.info('login form opened')
-            except Exception as em:
-                self.logger.error(f'failed to open login form: {em}')
-                continue
+                self.logger.error(f"Failed to load: {URL}")
+                errmsg = "Failed to load page."
+                self.constant.end_error(error_msg=errmsg)
+                return 0
 
-            self._processing_flush(6, index=12) # progressbar
+            while timeout > 0:
 
-            # INPUT DETAILS
-            try:
-                d.find_element(By.NAME, "email").send_keys(username)
-                self.logger.info('input username')
-            except Exception as em:
-                self.logger.error(f'failed to input username: {em}')
-                continue
-            try:
-                d.find_element(By.NAME, "password").send_keys(password)
-                self.logger.info('input password')
-            except Exception as em:
-                self.logger.error(f'failed to input password: {em}')
-                continue
-            try:
-                d.find_element(By.XPATH, f"{SUBMIT_BUTTON}").click()
-                self.logger.info('form submitted')
-            except Exception as em:
-                self.logger.error(f'failed submit form: {em}')
-                continue
-            sleep(interval)
-            try:
-                d.execute_script("arguments[0].click();", d.find_element(By.XPATH, f"{POPUP_CLOSE}"))
-                self.logger.info('popup closed')
-            except Exception as em:
-                self.logger.warning(f'failed to close popup: {em}')
-                continue
-            try:
-                user_name = d.find_element(By.XPATH, f"{USER_NAME}").text
-                self.logger.info('username verified')
-            except Exception as em:
-                self.logger.error(f'failed to verify username: {em}')
-                continue
+                sleep(self.delay) # wait for main page to load
 
-            self._processing_flush(7, index=12) # progressbar
-
-            # VERIFY LOGIN
-            if username in user_name:
-                self.logger.info('successfully logged into account.')
-                break
-            else:
-                self.logger.warning(f'failed logging attempt :: {timeout}')
-                pass
-
-        self._processing_flush(8, index=12) # progressbar
-
-        # SWITCH ACCOUNT TYPE
-        try:
-            d.get(f"https://{mode}.trading212.com")
-            self.logger.info(f'switched to "{mode}"')
-        except Exception as em:
-            self.logger.error(f'failed to switch to {mode}: {em}')
-
-        sleep(interval)
-
-        self._processing_flush(9, index=12) # progressbar
-
-        # GET COOKIES
-        user_agent = d.execute_script("return navigator.userAgent;")
-
-        if isinstance(headers, dict):
-            self.headers = headers
-        else:
-            cookies = d.get_cookies()
-            for cookie in cookies:
-                if cookie['name'] == f'TRADING212_SESSION_{mode.upper()}':
-                    my_cookie = f"TRADING212_SESSION_{mode.upper()}={cookie['value']};"
+                try:
+                    d.find_element(By.XPATH, f"{COOKIE_POPUP}").click()
+                    self.logger.info('cookie popup closed')
+                except Exception as em:
+                    self.logger.error(f'Initial popup: {em}') 
                 else:
                     pass
 
-            self.headers = {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "User-Agent": user_agent,
-                "Cookie": f'{my_cookie}',
-            }
+                sleep(self.interval)
 
-        self.logger.info(f'finished setup...{username}')
+                try:
+                    d.find_element(By.XPATH, f"{LOGIN_BUTTON}").click()
+                    self.logger.info('login form opened')
+                except Exception as em:
+                    self.logger.error(f'Login Form: {em}')
+                else:
+                    pass
+                
+                try:
+                    d.find_element(By.NAME, "email").send_keys(username)
+                    self.logger.info('Username input: sentKeys')
+                except Exception as em:
+                    self.logger.error(f'Username input: {em}')
+                else:
+                    pass
 
-        self._processing_flush(11, index=12) # progressbar
+                try:
+                    d.find_element(By.NAME, "password").send_keys(password)
+                    self.logger.info('Password input: sentKeys')
+                except Exception as em:
+                    self.logger.error(f'Password input: {em}')
+                else:
+                    pass
 
-        # CLOSE ALL DRIVERS
-        d.quit()
+                try:
+                    d.find_element(By.XPATH, f"{SUBMIT_BUTTON}").click()
+                    self.logger.info('Submit form successful.')
+                except Exception as em:
+                    self.logger.error(f'Submit form: {em}')
+                else:
+                    pass
 
-        self._processing_flush(12, index=12) # progressbar
+                sleep(self.delay) # Wait for main page to load
+                
+                break
 
-        # PRINT CREDENTIALS TO CONFIRM LOGIN
-        user_info = self.get_account()[f"{mode}Accounts"][0]
+            d.get(f"https://{mode}.trading212.com") # Switch account type
 
-        print("\rSuccessfully connected to userID: ",user_info["id"],
-              "type:",user_info["type"],"tradingType",user_info["tradingType"])
+            sleep(self.delay)
+            
+            self.constant._update_txt(func_name="cookies")
 
-    # RETURNS HEADERS AND URL
-    def __getitem__(self, key: str):
+            cookies = d.get_cookies() # Get cookies
+
+            if self._saveCookies == True:
+                self.fh.create_file(filename="_cookies", data=cookies)
+
+            # Update header variable
+            for cookie in cookies:
+                if f"TRADING212_SESSION_{self.mode.upper()}" in cookie['name']:
+                    self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+                if "CUSTOMER_SESSION" in cookie["name"]:
+                    self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+                if "LOGIN_TOKEN" in cookie["name"]:
+                    self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+                if "_rdt_uuid" in cookie["name"]:
+                    self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+
+
+            self.constant.end()
+
+    def _reconnect(self) -> None:
         """
-        :key:
-        :return:
-
         """
-        if key == "headers":
-            return self.headers
+
+        self.constant._start_flush(func_name="_Reconnect")
+        
+        # Get cookie file
+        cookies = self.fh.read_file(filename="_cookies")
+
+        # Update header variable
+        for cookie in cookies:
+            if f"TRADING212_SESSION_{self.mode.upper()}" in cookie['name']:
+                self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+            if "CUSTOMER_SESSION" in cookie["name"]:
+                self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+            if "LOGIN_TOKEN" in cookie["name"]:
+                self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+            if "_rdt_uuid" in cookie["name"]:
+                self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
+   
+        r = requests.get(url=f"{self.url}", headers=self.headers)
+        
+        r = requests.get(url=f"{self.url}/auth/validate", headers=self.headers)
+
+        if r.status_code == 200:
+            self.constant.end()
+            return r.status_code
         else:
-            return "No value 'key' passed"
-    
-    def _processing_flush(self, n, index=5):
-        if n % index == 0:
-            sys.stdout.write(f"\rProcessing [{n}:{index}]%s " % (index * ""))
-        sys.stdout.write(f"\rProcessing [{n}:{index}]%s " % ((n % index)* "#"))
-        sys.stdout.flush()
-    
-    # FIND DETAILS OF A INSTRUMENT INCLUDING ISIN
-    def find_instrument(self, instrument: str):
-        """
-        :param instrument:
-        :return:
+            self.fh.delete_file(filename="_cookies")
 
-        """
-        payload = [instrument]
 
-        try:
-            r = requests.post(f"{self.url}/rest/instrumentarium/v2/instruments/find", headers=self.headers,
-                              data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message": em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        return r.json()
-    
-    # SWITCH ACCOUNT BETWEEN EQUITY AND CFD
-    def switch(self):
-        """
-        :return:
+class CFD(object):
 
-        """
-        accountID = self.auth_validate()["accountId"]
+    def __init__(self, cred: Apit212, dealer: str = "AVUSUK", lang: str = "EN") -> None:
 
-        payload = {"accountId": accountID}
+        # Create time object
+        self.now = datetime.now()
 
-        try:
-            r = requests.post(f"{self.url}/rest/v1/login/accounts/switch")
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        # Get Mode
+        self.mode = cred.mode
 
-        return r.json()
-    
-    def fast_price(self, instrument: str, _useaskprice: str = "false") -> float:
-        """
-        :param instrument:
-        :return: float
+        # Get the correct url
+        self.url = f'https://{cred.mode}.trading212.com'
 
-        """
-        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
-                                 "period": "ONE_MINUTE", "size": 1}]}
-        try:
-            r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
-                             data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        price = r.json()
-        result = float(price[0]["response"]["candles"][0][-2])
+        # headers
+        self.headers = cred.headers
 
-        return result
-        
-    # GET CHART DATA
-    def chart_data(self, instrument: str, _useaskprice: str = "false", 
-                   period: str = "ONE_MINUTE", size: int = 500) -> list:
-        """
-        :param instruments:
-        :param period: ONE_MINUTE, FIVE_MINUTES, TEN_MINUTES, ONE_MONTH
-        :param _useaskprice:
-        :param size:
-        :return: [{'request': {'ticker': 'TSLA', 'period': 'ONE_MINUTE', 'size': 500, 
-            'useAskPrice': False}, 'response': {'candles': [[1691152740000, 259.6, 259.97, 
-            259.43, 259.49, 47], [1691152800000, 259.38, 259.94, 259.17, 259.56, 58], 
-            [1691152860000, 259.62, 260.34, 259.62, 260.19, 42]
+        # Get account info
+        account = self.get_account()[f"{cred.mode}Accounts"]
 
-        """
-        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
-                                 "period": f"{period}", "size": size}]}
-        
-        try:
-            r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
-                             data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        return r.json()
-    
-    # GET THE CURRENT PRICE
-    def live_price(self, instruments: list, 
-                   _useaskprice: str = "false") -> dict:
-        """
-        :param instruments:
-        :param _useaskprice:
-        :return: [{'ticker': 'TSLA', 'price': 253.49}, 
-            {'ticker': 'AAPL', 'price': 182.08}, 
-            {'ticker': 'GOOG', 'price': 128.44}]
+        for info in account:
+            if info["tradingType"] == "CFD":
+                accountId = info["id"]
+            else:
+                pass
 
-        """
-        if isinstance(instruments, str) == True:
-            instruments = [f"{instruments}"]
+        # Confirm correct account
+        authAccount = self.auth_validate()["accountId"]
+
+        if str(authAccount) != str(accountId):
+            # switch accound    
+            self.switch(account_id=accountId)
+
         else:
             pass
-        
-        payload = {"candles":[]}
 
-        for instrument in instruments:
-            payload["candles"].append(dict({"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
-                                 "period": "ONE_MINUTE", "size": 1}))
-       
-        try:
-            r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
-                             data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        result = []
-        data = r.json()
-        
-        for i in enumerate(data):
-            result.append(dict({"ticker":data[i[0]]["request"]["ticker"], "price": float(data[i[0]]["response"]["candles"][0][-2])}))
-                         
-        return result
+    def switch(self, account_id: int) -> dict:
+        """
+        """
 
-    # GET AUTH VALIDATE
+        payload = {"accountId":int(account_id)}
+
+        data = self.auth_validate()
+
+        self.headers.__setitem__("X-Trader-Client" , f"application=WC4, version=2.4.48, accountId={account_id}, dUUID={data['customerUuid']}")
+
+        r = requests.post(url=f"{self.url}/rest/v1/login/accounts/switch",
+                          headers=self.headers, data=json.dumps(payload))
+        
+        # update cookies in headers
+        cookies = r.cookies
+
+        # update cookies in headers
+        cookies = r.cookies
+
+        for cookie in cookies:
+            self.headers["Cookie"] = ""
+            self.headers["Cookie"] += f"{cookie.name}={cookie.value};"
+
+
+        return r.json()
+
     def auth_validate(self) -> dict:
         """
-        :return: {'id': '********-****-****-****-************', 'accountId': ********, 'customerId': ********,
-        'tradingType': 'CFD', 'customerUuid': '********-****-****-****-************', 'frontend': 'WC4',
-        'readyToTrade': True, 'deviceUuid': ''}
+        get information about session
+        """
+        r = requests.get(url=f"{self.url}/auth/validate", headers=self.headers)
+
+        return r.json()
+ 
+    def authenticate(self) -> dict:
+        """
+        re-establish session if session has ended and update headers
         """
 
-        try:
-            r = requests.get(f'{self.url}/auth/validate', headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
+        r = requests.get(url=f"{self.url}/rest/v1/webclient/authenticate", headers=self.headers)
+
         return r.json()
 
-    # GET ACCOUNT DETAILS
-    def get_account(self) -> dict:
-        """Get account info
-
-        :return: {'demoAccounts': [{'id': ********, 'type': 'DEMO', 'tradingType': 'CFD',
-        'customerId': ********, 'createdDate': '2023-01-17T03:20:48.000+00:00',
-        'status': 'ACTIVE', 'registerSource': 'WC4', 'currencyCode': 'GBP', 'readyToTrade': True}],
-        'liveAccounts': [{'id': ********, 'type': 'LIVE', 'tradingType': 'CFD', 'customerId': ********,
-        'createdDate': '2023-01-17T03:20:32.000+00:00', 'status': 'PENDING_ACTIVATION', 'registerSource': 'WC4',
-        'currencyCode': 'GBP', 'readyToTrade': False}]}
+    def get_timezone(self) -> dict:
+        """
+        Returns all timezones
         """
 
-        try:
-            r = requests.get(f'{self.url}/rest/v1/accounts', headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        return r.json()
+        r = requests.get(url=f"{self.url}/rest/v2/time-zones", headers=self.headers)
 
-    # GET ACCOUNT FUNDS
-    def get_funds(self) -> dict:
-        """Get account funds
-
-        :return: dict={'*********': {'accountId': ********,
-        'tradingType': 'CFD', 'currency': 'GBP', 'freeForWithdraw': 310.5,
-        'freeForCfdTransfer': 0, 'total': 4954.12, 'lockedCash': {'totalLockedCash': 0, 'lockedCash': []}}}
-        """
-
-        try:
-            r = requests.get(f"{self.url}/rest/v2/customer/accounts/funds", headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        return r.json()
-
-    # GET ORDER SIZE
-    def get_max_min(self, instrument: str) -> dict:
-        """
-        Get the min and max 'BUY' & 'SELL' for an instrument passed to this function.
-
-        :param instrument:
-        :return: {'minBuy': 1.0, 'maxBuy': 4593.17,
-        'minSell': 1.0, 'maxSell': 0.0, 'sellThreshold': 0.0, 'maxSellQuantity': 0}
-
-        """
-        params = {'instrumentCode': {instrument}}
-
-        try:
-            r = requests.get(f"{self.url}/v1/equity/value-order/min-max",
-                             headers=self.headers, params=params)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        return r.json()
-
-    # CANCEL ORDER
-    def cancel_order(self, order_id: str) -> dict:
-        """
-
-        :param order_id:
-        :return: {'account': {'dealer': 'AVUSUK', 'positions': [{'positionId': '********-****-****-****-************',
-        'humanId': '**********', 'created': '2023-06-05T21:32:45.000+03:00', 'modified': None, 'averagePrice': 181.09,
-        'averagePriceConverted': 144.96174516, 'currentPrice': 186.45, 'limitPrice': None, 'stopPrice': None,
-        'value': 16047.62, 'investment': 15945.79, 'limitStopNotify': None, 'trailingStop': None,
-        'trailingStopPrice': None, 'trailingStopNotify': None, 'code': 'AAPL', 'margin': 3225.65, 'ppl': 461.33,
-        'quantity': 110.0, 'maxBuy': None, 'maxSell': None, 'maxOpenBuy': None, 'maxOpenSell': None, 'swap': -16.11,
-        'frontend': 'WC4', 'pplAdjustment': None, 'autoInvestQuantity': None, 'fxPpl': None}
-        """
-        payload = {'positionId': f'{order_id}'}
-
-        try:
-            r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/entry/{order_id}",
-                                headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
         return r.json()
     
-    # CANCEL ALL PENDING ORDERS
-    def cancel_all_orders(self) -> dict:
-        """"""
-        payload = []
-
-        try:
-            data = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
-                                 headers=self.headers, data=json.dumps(payload))
-        except ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-        
-        try:
-            r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/cancel",
-                                headers=self.headers, data=data)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+    def get_account(self) -> dict:
+        """
+        returns a dictionary containing account data
+        """
+        r = requests.get(url=f"{self.url}/rest/v1/accounts", headers=self.headers)
 
         return r.json()
 
-    # CANCEL ORDER
-    def close_position(self, position_id: str, quantity: float, current_price: float) -> dict:
+    def get_funds(self) -> dict:
         """
-        close open positions
-        :param position_id:
-        :param quantity:
-        :param current_price:
-        :return:
+        returns a dictionary containing fund data
+        """
+        r = requests.get(url=f"{self.url}/rest/v2/customer/accounts/funds", headers=self.headers)
+
+        return r.json()
+
+    def get_max_min(self, instrument: str) -> dict:
+        """
+        :param instrument:
+        :return: dict
         """
 
-        payload = {'coeff': {
-            'positionId': f'{position_id}',
-            'quantity': quantity,
-            'targetPrice': current_price}}
+        params = {'instrumentCode': {instrument}}
 
-        try:
-            r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{position_id}",
-                                headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        r = requests.get(url=f"{self.url}/v1/equity/value-order/min-max", 
+                         headers=self.headers, params=params)
         
         return r.json()
 
-    # GET ACCOUNT SUMMARY (GET POSITION ID)
     def get_summary(self) -> dict:
-        """This function can be used along with a bot to get positionId's to manually close positions and get data on
-        your accounts.
-
-        :return: {'cash': {'free': 219.73, 'total': 4851.04, 'interest': -379.02, 'indicator': 51, 'commission': 0.0,
-        'cash': 5000.0, 'ppl': 327.56, 'result': -97.5, 'margin': 4631.31, 'spreadBack': 0.0, 'nonRefundable': 0.0,
-        'dividend': 0.0, 'totalCashForWithdraw': 219.73}, 'open': {'unfilteredCount': 3,
-        'items': [{'positionId': '********-****-****-****-************', 'humanId': '**********',
-        'created': '2023-06-05T21:32:45.000+03:00', 'averagePrice': 181.09,
-        'averagePriceConverted': 144.96174516, 'currentPrice': 186.31, 'value': 16013.4,
-        'investment': 15945.79, 'code': 'AAPL', 'margin': 3218.77, 'ppl': 448.66,
-        'quantity': 110.0, 'swap': -16.08, 'frontend': 'WC4'}
         """
+        """
+
         payload = []
 
-        try:
-            r = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary", headers=self.headers,
-                              data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-
+        r = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
+                          headers=self.headers, data=json.dumps(payload))
+        
         return r.json()
 
-    # GET LIST OF COMPANIES
     def get_companies(self) -> list:
         """
-        This function will return a list of tickers and their corresponding isin code.
-        :return: [{'ticker': 'TICK', 'isin': '*************'}]
+        Returns all companies avalible on the trading212 platform
         """
-        try:
-            r = requests.get(f"{self.url}/rest/companies", headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
 
+        r = requests.get(url=f"{self.url}/rest/companies", headers=self.headers)
+        
         return r.json()
 
-    # GET TICKER INFORMATION
     def get_instruments_info(self, instrument: str) -> dict:
         """
-        This function returns information about the ticker.
+        Get information about a specific instrument
         :param instrument:
-        :return: {'code': 'TSLA', 'type': 'STOCK', 'margin': 0.2,
-        'shortPositionSwap': -0.06510720836211, 'longPositionSwap': -0.25863029163789,
-        'tsSwapCharges': '1970-01-01T23:00:00.000+02:00', 'marginPercent': '20', 'leverage': '1:5'}
+        :return dict:
         """
-        try:
-            r = requests.get(f'{self.url}/v2/instruments/additional-info/{instrument}',
-                             headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
 
+        r = requests.get(url=f"{self.url}/v2/instruments/additional-info/{instrument}", 
+                         headers=self.headers)
+        
         return r.json()
 
-    # GET INSTRUMENT INFORMATION
-    def get_order_info(self, instrument: str, quantity: float):
+    def get_order_info(self, instrument: str, quantity: float) -> dict:
         """
-        This function will return the buy and sell margins info and swap info
-        :param instrument:
+        Returns order history as a dictionary:
+        :param insturment:
         :param quantity:
-        :return: {'buyMargin': 39.74, 'sellMargin': 39.74, 'buySwap': -0.2, 'sellSwap': -0.05}
+        :return dict:
         """
+
         params = {'instrumentCode': f"{instrument}",
                   'quantity': quantity,
                   'positionId': 'null'}
-        try:
-            r = requests.get(f"{self.url}/rest/v1/tradingAdditionalInfo", 
-                             headers=self.headers, params=params)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        
+        r = requests.get(url=f"{self.url}/rest/v1/tradingAdditionalInfo", 
+                         headers=self.headers, params=params)
         
         return r.json()
 
-    # GET ASK PRICE FOR INSTRUMENT
-    def get_deviations(self, instruments: list, _useaskprice: str = "false") -> list:
+    def get_deviations(self, instruments: list and str,  _useaskprice: str = "false") -> dict:
         """
-
-        :param instrument:
-        :param _useaskprice:
-        :return: [{'request': {'ticker': '****', 'useAskPrice': False}, 'response':
-        {'timestamp': 1687852810000, 'price': 250.37, 'period': 'd1'}}]
         """
-
-        if isinstance(instruments, str) == True:
-            instruments = [f"{instruments}"]
-        else:
-            pass
-        
+        if isinstance(instruments, str):
+            instruments = [instruments]
 
         payload = []
 
         for instrument in instruments:
             payload.append(dict({"ticker": f"{instrument}", "useAskPrice": f"{_useaskprice}"}))
 
-        try:
-            r = requests.put(f'{self.url}charting/v1/watchlist/batch/deviations',
-                             headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-
-        return r.json()
-
-    # PLACE LIMIT ORDER
-    def limit_order(self,
-                    instrument: str,
-                    quantity: float,
-                    target_price: float,
-                    take_profit: float,
-                    stop_loss: float,
-                    notify: str = "NONE"):
-        """the minimum requirement to submit a limit order is the instrument, quantity and target price.
-        You can also set a take_profit and stop_loss limits. I would like to point out that this
-        function will only submit your order and will make no attempts to change any of the parameters.
-
-        :param instrument:
-        :param quantity:
-        :param target_price:
-        :param take_profit:
-        :param stop_loss:
-        :param notify:
-        :return:
-        """
-        payload = {'quantity': round(quantity, 1),
-                   'targetPrice': round(target_price, 2),
-                   'takeProfit': round(take_profit, 2),
-                   'stopLoss': round(stop_loss, 2),
-                   'notify': notify}
+        r = requests.put(url=f"{self.url}/charting/v1/watchlist/batch/deviations",
+                         headers=self.headers, data=json.dumps(payload))
         
-        try:
-            r = requests.post(f'{self.url}/rest/v2/pending-orders/entry-dep-limit-stop/{instrument}',
-                              headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-
         return r.json()
 
-    # MARKET ORDER
-    def market_order(self,
-                     instrument: str,
-                     target_price: float,
-                     quantity: int,
-                     limit_distance: float,
-                     stop_distance: int,
-                     notify: str = "NONE"):
-        """the minimum requirement to submit a market order is the instrument, quantity and target price.
-        You can also set a take_profit and stop_loss limits. I would like to point out that this
-        function will only submit your order and will make no attempts to change any of the parameters.
-
-        if an incorrect order is submitted you will get a code message returned.
-        ie: {'code': 'BusinessException', 'context': {'max': 684, 'type': 'InsufficientFundsMaxBuy'},
-        'message': 'InsufficientResourcesException'}
-
-        :param instrument:
-        :param target_price:
-        :param limit_distance:
-        :param notify:
-        :param quantity:
-        :param stop_distance:
-        :return:
+    def get_position(self, position_id: str) -> dict:
+        """
         """
 
-        payload = {'instrumentCode': f"{instrument}",
-                   'limitDistance': limit_distance,
-                   'notify': f"{notify}",
-                   'quantity': quantity,
-                   'stopDistance': stop_distance,
-                   'targetPrice': target_price}
+        r = requests.get(url=f"{self.url}/rest/reports/positionHistory/{position_id}",
+                         headers=self.headers,)
+        
+        return r.json()
 
-        try:
-            r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions",
-                              headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+    def get_all_results(self, page_number: int) -> dict:
+        """
+        """
+
+        params = {
+            "page": page_number,
+            "itemsPerPage": 10,
+        }
+
+        r = requests.get(url=f"{self.url}/rest/reports/results",
+                         headers=self.headers, params=params)
+        
+        return r.json()
+
+    def get_order_hist(self, page_number: int, _tz: str = "01:00") -> dict:
+        """
+        """
+
+        endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
+        startperiod = self.now.strftime("%Y-%m-%dT23:59:59.173+")
+
+        params = {
+            "page": page_number,
+            "itemsPerPage": 10,
+            "from": f"{endperiod}{_tz}",
+            "to": f"{startperiod}{_tz}",
+            "filter": "all"
+        }
+
+        r = requests.get(url=f"{self.url}/rest/reports/orders", 
+                         headers=self.headers, params=params)
+        
+        return r.json()
+
+    def get_position_hist(self, page_number: int,  _tz: str = "01:00") -> dict:
+        """
+        """
+        endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
+        startperiod = self.now.strftime("%Y-%m-%dT23:59:59.173+")
+
+        params = {
+            "page": page_number,
+            "itemsPerPage": 10,
+            "from": f"{endperiod}{_tz}",
+            "to": f"{startperiod}{_tz}",
+            "filter": "all"
+        }
+
+        r = requests.get(url=f"{self.url}/rest/reports/positions",
+                         headers=self.headers, params=params)
 
         return r.json()
 
-    # ADD TRAILING STOP LOSS
-    def trailing_stop(self, position_id: str, distance: float, notify: str = "NONE"):
+    def set_limits(self, position_id: str, TP: float = None, SL: float = None, notify: str = "NONE") -> dict:
+        """
+        """
+
+        # Get position info
+        data = self.get_position(position_id=position_id)
+
+        direction = data[0]["direction"]
+        price = data[0]["price"]
+
+        if direction == "buy":
+            if TP != None and SL != None:
+                tp = round(float(price) + TP, 2)
+                sl = round(float(price) - SL, 2)
+                payload = {"tp_sl": {"takeProfit": tp, "stopLoss": sl}, 
+                           "notify": notify}
+            elif TP == None and SL != None:
+                sl = round(float(price) - SL, 2)
+                payload = {"tp_sl": {"stopLoss": sl}, 
+                           "notify": notify}
+            elif TP != None and SL == None:
+                tp = round(float(price) + TP, 2)
+                payload = {"tp_sl": {"takeProfit": tp}, 
+                           "notify": notify}
+                
+        elif direction == "sell":
+            if TP != None and SL != None:
+                tp = round(float(price) - TP, 2)
+                sl = round(float(price) + SL, 2)
+                payload = {"tp_sl": {"takeProfit": tp, "stopLoss": sl}, 
+                           "notify": notify}
+            elif TP == None and SL != None:
+                sl = round(float(price) + SL, 2)
+                payload = {"tp_sl": {"stopLoss": sl}, 
+                           "notify": notify}
+            elif TP != None and SL == None:
+                tp = round(float(price) - TP, 2)
+                payload = {"tp_sl": {"takeProfit": tp}, 
+                           "notify": notify}
+                
+        else:
+            return {"code":"failedToGetPosition"}
+        
+        r = requests.put(url=f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
+                         headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+        
+    def add_trailing_stop(self, position_id: str, distance: float, notify: str = "NONE"):
         """
         Add a trailing stop to you live positions.
         :param position_id:
@@ -821,331 +683,441 @@ class Apit212:
         :param notify:
         :return:
         """
-
-        payload = {"ts": {"distance": distance}, "notify": f"{notify}"}
-
-        try:
-            r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}",
-                             headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-
-        return r.json()
-    
-    # ADD A STOP LOSS OR TAKE PROFIT TO OPEN TRADES
-    def add_limits(self, position_id: str, TP: float = None, SL: float = None, notify: str = "NONE"):
-        """
-        Add or change a stoploss and takeprofit on an open order.
-        :param position_id:
-        :param TP:
-        :param SL:
-        :param notify:
-        :return: 
-        """
-        # GET POSTION DIRECTION AND PRICE
         data = self.get_position(position_id=position_id)
 
         direction = data[0]["direction"]
         price = data[0]["price"]
 
-        payload = {"tp_sl": {}, "notify": notify}
-
         if direction == "buy":
-            if TP != None:
-                payload["tp_sl"].update(dict({"takeProfit": round(float(price) + TP, 2)}))
-            else:
-                pass
-
-            if SL != None:
-                payload["tp_sl"].update(dict({"stopLoss": round(float(price) - SL, 2)}))
-            else:
-                pass
+            distance = distance
         elif direction == "sell":
-            if TP != None:
-                payload["tp_sl"].update(dict({"takeProfit": round(float(price) - TP, 2)}))
-            else:
-                pass
-
-            if SL != None:
-                payload["tp_sl"].update(dict({"stopLoss": round(float(price) + SL, 2)}))
-            else:
-                pass
+            distance = distance*-1
         else:
-            return {"Excaption": {"message": "failed to update tp_sl"}}
-        
-        try:
-            r = requests.put(f"{self.url}/rest/v2/pending-orders/associated/{position_id}", 
-                             headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+            return {"code":"noDirection"}
+
+        payload = {"ts": {"distance": distance}, "notify": f"{notify}"}
+
+        r = requests.put(url=f"{self.url}/rest/v2/pending-orders/associated/{position_id}", 
+                         headers=self.headers, data=json.dumps(payload))
         
         return r.json()
-    
-    # GET POSITION HISTORY
-    def all_position_hist(self, _tz: str = "01:00") -> dict:
-        """
-        :return: 
-        """
 
-        endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
-        startperiod = self.now.strftime("%Y-%m-%dT23:59:59.173+")
-        result = []
+    def fundamentals(self, instrument: str, language: str = "en") -> dict:
+        """
+        """
 
         params = {
-            "page": 1,
-            "itemsPerPage": 10,
-            "from": f"{endperiod}{_tz}",
-            "to": f"{startperiod}{_tz}",
-            "filter": "all"
+            "languageCode": language,
+            "ticker": instrument
         }
 
-        try:
-            r = requests.get(f"{self.url}/rest/reports/positions",
-                            headers=self.headers, params=params)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        r = requests.get(url=f"{self.url}/rest/companies/v2/fundamentals",
+                         headers=self.headers, params=params)
         
-        limit = 0
-        while True:
-            if r.status_code == 403:
-                break
-            data = r.json()
-            result.append(data)
-            try:
-                nextpage = r.json()["nextPage"]
-                limit += 1
-                params = {
-                    "page": limit,
-                    "itemsPerPage": 10,
-                    "from": f"{endperiod}{_tz}",
-                    "to": f"{startperiod}{_tz}",
-                    "filter": "all"
-                }
-            except KeyError as em:
-                break
-            try:
-                r = requests.get(f"{self.url}/rest/reports/positions",
-                            headers=self.headers, params=params)
-            except requests.exceptions.ConnectionError as em:
-                return {"code":"connectionError", "message":em}
-            except requests.exceptions.Timeout as em:
-                return {"code": "requestTimeout", "message": em}
-            except requests.exceptions.HTTPError as em:
-                return {"code": "HTTPError", "message": em}
-            except requests.exceptions.RequestException as em:
-                return {"code": "Unknown", "message": em}
-        
-        return result
-
-    # GET ORDERS
-    def all_order_hist(self, _tz: str = "01:00") -> dict:
-        """
-        """
-        
-        endperiod = (self.now - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000+")
-        startperiod = self.now.strftime("%Y-%m-%dT23:59:59.173+")
-        result = []
-
-        params = {
-            "page": 1,
-            "itemsPerPage": 10,
-            "from": f"{endperiod}{_tz}",
-            "to": f"{startperiod}{_tz}",
-            "filter": "all"
-        }
-        
-        try:
-            r = requests.get(f"{self.url}/rest/reports/orders",
-                            headers=self.headers, params=params)
-        except ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        
-        limit = 0
-        while True:
-            if r.status_code == 403:
-                break
-            data = r.json()
-            result.append(data)
-            try:
-                nextpage = r.json()["nextPage"]
-                limit += 1
-                params = {
-                    "page": limit,
-                    "itemsPerPage": 10,
-                    "from": f"{endperiod}{_tz}",
-                    "to": f"{startperiod}{_tz}",
-                    "filter": "all"
-                }
-            except KeyError as em:
-                break
-            r = requests.get(f"{self.url}/rest/reports/orders",
-                        headers=self.headers, params=params)
-        
-        return result
-
-    # GET OPEN POSISTIONS            
-    def get_position(self, position_id: str):
-        """
-        :params position_id:
-        :return: [{'eventType': {'action': 'opened', 'source': 'MARKET_ORDER'}, 
-                'eventNumber': {'name': 'MO30****9640', 'id': '274****13', 'frontend': 'WC4'}, 'time': '2023-08-02T22:42:54.000+03:00', 
-                'direction': 'sell', 'quantity': 1.0, 'price': '105.29', 'avgQuantity': 1.0, 'avgPrice': '105.2900', 'modifiedDirection': 
-                'sell'}]
-        """
-        try:
-            r = requests.get(f"{self.url}/rest/reports/positionHistory/{position_id}", 
-                             headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-
         return r.json()
 
-    # VALIDATE SESSION
-    def validate_session(self):
+    def profit_losses(self, instrument: str) -> dict:
         """
-        :return: {'id': '*****-********-********-******', 'accountId': **********, 
-                'customerId': *********, 'tradingType': 'CFD', 
-                'customerUuid': '*****-********-********-******', 'frontend': 'WC4', 
-                'readyToTrade': True, 'deviceUuid': ''}
-
-        """
-        try:
-            r = requests.get(f"{self.url}validate-session", headers=self.headers)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-
-        return r.status_code
-
-    # RESET DEMO ACCOUNT
-    def _reset(self, account_id: int, amount: int, currency_code: str):
-        """"""
-        payload = {"accountId": account_id, "amount": amount, "currencyCode": f"{currency_code}", "reason": "settings"}
-
-        r = requests.post(f"{self.url}/rest/v1/account/reset-with-sum", headers=self.headers, data=json.dumps(payload))
-
-        return r
-    
-    def settings(self, instrument: str):
-        """
-        :param instrument:
-        :return: [{'code': 'TSLA', 'maxBuy': 4.7, 'maxMarketOrderBuy': 1.8, 'maxSell': 4.7, 
-                'maxOpenBuy': 1200.0, 'maxOpenSell': 1200.0, 'suspended': False, 'minTrade': 0.1}]
-
         """
 
         payload = [instrument]
 
-        try:
-            r = requests.post(f"{self.url}/rest/v2/account/instruments/settings", headers=self.headers,
-                              data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
-    
-        return r.json()
-    
-    def additional_info(self, instrument: str):
-        """
-
-        :param instrument:
-        :return: {code: "STLD_US_CFD", type: "STOCK", margin: 0.2, shortPositionSwap: -0.026087881955975,…}
-
-        """
-
-        params = instrument
-
-        try:
-            r = requests.get(f"{self.url}/rest/v2/instruments/additional-info/", 
-                             headers=self.headers, params=params)
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        r = requests.post(url=f"{self.url}/rest/v2/trading/profit-losses", 
+                          headers=self.headers, data=json.dumps(payload))
         
         return r.json()
-    
-    def high_low(self, instrument: str):
+
+    def high_low(self, instrument: str) -> dict:
         """
-        :param instrument:
-        :return: {request: {ticker: "EURUSD"}, result: {high: 1.10339, low: 1.10002}}
-        
         """
 
         payload = {"ticker": f"{instrument}"}
 
-        try:
-            r = requests.post(f"{self.url}/charting/v2/batch/high-low",
-                              headers=self.headers, data=json.dumps(payload))
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        r = requests.post(url=f"{self.url}/charting/v2/batch/high-low", 
+                          headers=self.headers, data=json.dumps(payload))
         
         return r.json()
 
-    def profit_losses(self, instrument: str):
+    def additional_info(self, instrument: str) -> dict:
         """
-        :param instrument:
-        :return: {'data': [{'profit': 1.28223115578, 'loss': 1.267194029851}], 
-                'size': 1, 'positiveSum': 0, 'negativeSum': 0}
+        
         """
+        r = requests.get(url=f"{self.url}/rest/v2/instruments/additional-info/{instrument}",
+                         headers=self.headers,)
+        
+        return r.json()
 
+    def settings(self, instrument: str) -> dict:
+        """
+        """
         payload = [instrument]
 
-        try:
-            r = requests.post(f"{self.url}/rest/v2/trading/profit-losses", headers=self.headers,
-                              data=json.dumps(payload))   
-        except requests.exceptions.ConnectionError as em:
-            return {"code":"connectionError", "message":em}
-        except requests.exceptions.Timeout as em:
-            return {"code": "requestTimeout", "message": em}
-        except requests.exceptions.HTTPError as em:
-            return {"code": "HTTPError", "message": em}
-        except requests.exceptions.RequestException as em:
-            return {"code": "Unknown", "message": em}
+        r = requests.post(url=f"{self.url}/rest/v2/account/instruments/settings", 
+                          headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+
+    def market_order(self,
+                     instrument: str,
+                     target_price: float,
+                     quantity: float,
+                     take_profit: float,
+                     stop_loss: float,
+                     notify: str = "NONE") -> dict:
+        
+        """
+        """
+        payload = {'instrumentCode': f"{instrument}",
+                   'limitDistance': take_profit,
+                   'notify': f"{notify}",
+                   'quantity': quantity,
+                   'stopDistance': stop_loss,
+                   'targetPrice': target_price}
+        
+        r = requests.get(url=f"{self.url}/rest/v2/trading/open-positions", 
+                         headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+
+    def limit_order(self,
+                     instrument: str,
+                     target_price: float,
+                     quantity: float,
+                     take_profit: float,
+                     stop_loss: float,
+                     notify: str = "NONE") -> dict:
+
+        payload = {'instrumentCode': f"{instrument}",
+                   'limitDistance': take_profit,
+                   'notify': f"{notify}",
+                   'quantity': quantity,
+                   'stopDistance': stop_loss,
+                   'targetPrice': target_price}
+        
+        r = requests.post(url=f"{self.url}/rest/v2/pending-orders/entry-dep-limit-stop/{instrument}", 
+                          headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+    
+    def close_position(self, position_id: str, current_price: float) -> dict:
+        """
+        """
+
+        data = self.get_position(position_id=position_id)
+
+        quantity = data[0]["quantity"]
+
+        current_price = self.fast_price()
+
+        payload = {'coeff': {
+            'positionId': f'{position_id}',
+            'quantity': quantity,
+            'targetPrice': current_price}}
+        
+        r = requests.delete(url=f"{self.url}/rest/v2/trading/open-positions/close/{position_id}", 
+                            headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+    
+    def cancel_all_orders(self) -> dict:
+        """
+        """
+        payload = []
+
+        data = r = requests.post(url=f"{self.url}/rest/trading/v1/accounts/summary",
+                       data=json.dumps(payload))
+        
+        r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/cancel",
+                            headers=self.headers, data=data)
         
         return r.json()
     
+    def cancel_order(self, order_id: str) -> dict:
+        """
+        """
+        payload = {'positionId': f'{order_id}'}
+
+        r = requests.delete(url=f"{self.url}/rest/v2/pending-orders/entry/{order_id}",
+                            headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+    
+    def _reset(self, account_id: int, amount: int, currency_code: str):
+        """
+        reset a demo account
+        """
+        payload = {"accountId": account_id, 
+                   "amount": amount, 
+                   "currencyCode": f"{currency_code}", 
+                   "reason": "settings"}
+
+        r = requests.post(f"{self.url}/rest/v1/account/reset-with-sum",
+                        headers=self.headers, data=json.dumps(payload))
+
+        return r.json()
+        
+    def fast_price(self, instrument: str,  _useaskprice: str = "false") -> float:
+        """
+        """
+        payload = {"candles":[{"ticker": f"{instrument}", 
+                            "useAskPrice": _useaskprice, 
+                            "period": "ONE_MINUTE", "size": 1}]}
+        
+        r = requests.put(f"{self.url}/charting/v3/candles", 
+                         headers=self.headers, data=json.dumps(payload))
+        
+        if r.status_code == 200:
+            price = r.json()
+            return float(price[0]["response"]["candles"][0][-2])
+        else:
+            return None
+        
+    def chart_data(self, 
+                   instrument: str, 
+                   _useaskprice: str = "false", 
+                   period: str = "ONE_MINUTE", 
+                   size: int = 500) -> list:
+        
+        """
+        """
+        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": f"{period}", "size": size}]}
+        
+        r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
+                             data=json.dumps(payload))
+        
+        if r.status_code == 200:
+            return r.json()
+        else:
+            return None
+    
+    def multi_price(self, instruments: list, _useaskprice: str = "false") -> list:
+        """
+        :param instruments:
+        :param _useaskprice:
+        :return: [{'ticker': 'TSLA', 'price': 253.49}, 
+            {'ticker': 'AAPL', 'price': 182.08}, 
+            {'ticker': 'GOOG', 'price': 128.44}]
+        """
+
+        payload = {"candles":[]}
+        
+        for instrument in instruments:
+            payload["candles"].append(dict({"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": "ONE_MINUTE", "size": 1}))
+            
+        r = requests.put(f'{self.url}/charting/v3/candles', headers=self.headers,
+                             data=json.dumps(payload))
+        
+        if r.status_code == 200:
+            result = []
+            data = r.json()
+
+            for i in enumerate(data):
+                try:
+                    result.append(dict({"ticker":data[i[0]]["request"]["ticker"], "price": float(data[i[0]]["response"]["candles"][0][-2])}))
+                except IndexError as em:
+                    pass
+                except KeyError as em:
+                    pass
+                
+            return result
+        
+        else:
+            return None
+
+
+class Equity(object):
+
+    def __init__(self, cred: Apit212, dealer: str = "AVUSUK", lang: str = "EN") -> None:
+
+        # Create time object
+        self.now = datetime.now()
+
+        # Get Mode
+        self.mode = cred.mode
+
+        # Get the correct url
+        self.url = f'https://{cred.mode}.trading212.com'
+
+        # headers
+        self.headers = cred.headers
+
+        # Get account info
+        account = self.get_account()[f"{cred.mode}Accounts"]
+
+        for info in account:
+            if info["tradingType"] == "EQUITY":
+                accountId = info["id"]
+            else:
+                pass
+
+        # Confirm correct account
+        authAccount = self.auth_validate()["accountId"]
+
+        if str(authAccount) != str(accountId):
+            # switch accound    
+            self.switch(account_id=accountId)
+
+        else:
+            pass
+
+    def switch(self, account_id: int) -> dict:
+        """
+        """
+        payload = {"accountId":int(account_id)}
+
+        data = self.auth_validate()
+
+        self.headers.__setitem__("X-Trader-Client" , f"application=WC4, version=2.4.48, accountId={account_id}, dUUID={data['customerUuid']}")
+
+        r = requests.post(url=f"{self.url}/rest/v1/login/accounts/switch",
+                          headers=self.headers, data=json.dumps(payload))
+        
+        # update cookies in headers
+        cookies = r.cookies
+
+        for cookie in cookies:
+            self.headers["Cookie"] = ""
+            self.headers["Cookie"] += f"{cookie.name}={cookie.value};"
+
+        return r.json()
+    
+    def get_account(self) -> dict:
+        """
+        returns a dictionary containing account data
+        """
+        r = requests.get(url=f"{self.url}/rest/v1/accounts", headers=self.headers)
+
+        return r.json()
+
+    def auth_validate(self) -> dict:
+        """
+        get information about session
+        """
+        r = requests.get(url=f"{self.url}/auth/validate", headers=self.headers)
+
+        return r.json()
+ 
+    def authenticate(self) -> dict:
+        """
+        re-establish session if session has ended and update headers
+        """
+
+        r = requests.get(url=f"{self.url}/rest/v1/webclient/authenticate",  headers=self.headers)
+
+        return r.json()
+
+    def close(self, 
+                   instrument: str, 
+                   _useaskprice: str = "true", 
+                   period: str = "THIRTY_MINUTES", 
+                   size: int = 336) -> list:
+        
+        """
+        """
+        payload = {"candles":[{"ticker": f"{instrument}", "useAskPrice": _useaskprice, 
+                                 "period": f"{period}", "size": size}]}
+        
+        r = requests.put(f'{self.url}/charting/v3/candles/close', headers=self.headers,
+                             data=json.dumps(payload))
+        
+        if r.status_code == 200:
+            return r.json()
+        else:
+            return None
+
+    def add_cost(self, 
+                 instrument: str, 
+                 currency: str, 
+                 limitPrice: float,
+                 orderType: str,
+                 quantity: float,
+                 stopPrice: float,
+                 timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":currency,
+                   "limitPrice":limitPrice,"orderType":orderType,"quantity":quantity,
+                   "stopPrice":stopPrice,"timeValidity":timeValidity}
+        
+        r = self.s.post(url=f"{self.url}/rest/public/added-costs", 
+                        headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+    
+    def market_order(self, 
+                    instrument: str, 
+                    currency: str,
+                    quantity: float,
+                    timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":currency,
+                   "orderType":"MARKET","quantity":quantity,
+                   "timeValidity":timeValidity}
+        
+        r = requests.post(url=f"{self.url}/rest/public/v2/equity/order",  
+                          headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+    
+    def limit_order(self, 
+                    instrument: str, 
+                    currency: str,
+                    quantity: float,
+                    limit_price: float,
+                    timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":
+                   currency,"limitPrice":limit_price,"orderType":"LIMIT",
+                   "quantity":quantity, "timeValidity":timeValidity}
+        
+        r = requests.post(url=f"{self.url}/rest/public/v2/equity/order",  
+                          headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+  
+    def stop_limit(self, 
+                    instrument: str, 
+                    currency: str,
+                    quantity: float,
+                    limit_price: float,
+                    stop_price: float,
+                    timeValidity: str = "GOOD_TILL_CANCEL") -> dict:
+        """
+        """
+
+        payload = {"instrumentCode":instrument,"currencyCode":currency,
+                   "limitPrice":limit_price,"orderType":"STOP_LIMIT",
+                   "quantity":quantity,"stopPrice":stop_price,"timeValidity":timeValidity}
+
+        r = requests.post(url=f"{self.url}/rest/public/v2/equity/order",  
+                        headers=self.headers, data=json.dumps(payload))
+        
+        return r.json()
+    
+    def cancel_order(self,
+                     position_id: str) -> dict:
+        """
+        """
+
+        r = requests.get(url=f"{self.url}/rest/public/v2/equity/order/{position_id}",  headers=self.headers)
+        
+        return r.json()
+    
+    def min_max(self, instrument: str, currency: str) -> dict:
+        """
+        """
+
+        params = {"instrumentCode": instrument, "currencyCode": currency}
+
+        r = requests.get(url=f"{self.url}/rest/v1/equity/value-order/min-max",  
+                         headers=self.headers, params=params)
+        
+        return r.json()
