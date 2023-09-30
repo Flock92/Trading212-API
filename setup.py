@@ -6,7 +6,7 @@ long_description = """This is an unofficial API use to interact with the trading
 
 setup(
     name="apit212",
-    version="1.0.4",
+    version="2.0.5",
     packages=find_packages(),
     requires=[
         'requests',
@@ -18,7 +18,7 @@ setup(
     long_description=long_description,
     license="MIT",
     keywords="trading api" "python3" "trading212" "API",
-    url="https://github.com/Flock92/aPit212", 
+    url="https://github.com/Flock92/aPit212",
     classifiers=[
         "Programming Language :: Python :: 3.9",
         "Operating System :: OS Independent",
