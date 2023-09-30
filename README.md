@@ -3,6 +3,8 @@
 This is a Pyhton based API using selenium and requests to get insformation from the broker trading 212 Please note that either myself or trading212 take responsibility for the use of this API.
 I will continue to work on this project and would appriciate any feedback. 
 
+[link]:https://t212public-api-docs.redoc.ly/#operation/exchanges
+
 ## Requirments
 
 * Selenium
