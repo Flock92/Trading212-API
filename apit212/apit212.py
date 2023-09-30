@@ -423,12 +423,12 @@ class CFD(object):
 
         if str(authAccount) != str(accountId):
             # switch accound    
-            self.switch(account_id=accountId)
+            self.__switch(account_id=accountId)
 
         else:
             pass
 
-    def switch(self, account_id: int) -> dict:
+    def __switch(self, account_id: int) -> dict:
         """
         """
 
@@ -966,12 +966,12 @@ class Equity(object):
 
         if str(authAccount) != str(accountId):
             # switch accound    
-            self.switch(account_id=accountId)
+            self.__switch(account_id=accountId)
 
         else:
             pass
 
-    def switch(self, account_id: int) -> dict:
+    def __switch(self, account_id: int) -> dict:
         """
         """
         payload = {"accountId":int(account_id)}
@@ -1159,15 +1159,14 @@ class Apitkey:
             response = requests.get(url=f"{self.url}/metadata/exchanges", headers=self.headers)
 
             if response.status_code == 200:
-                pass
+                return response.json()
             elif response.status_code == 404:
                 return response.status_code
             else:
-                return response.status_code
+                return response.json()
 
         def exchange_list(self) -> dict:
             """
-
             """
 
             sleep(self.delay)
@@ -1177,12 +1176,13 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def instrument_list(self) -> dict:
-            """
-            
+            """        
             """
 
             sleep(self.delay)
@@ -1205,16 +1205,26 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
-        def create_pie(self, instrument_shares: dict, 
+        def create_pie(self, 
+                       instrument_shares: dict, 
                        end_date: str, goal: int, 
                        dividend_action: str, 
-                       icon: str = "Home", 
-                       name: str = "string") -> dict:
+                       icon: str,
+                       name: str) -> dict:
             """
-            
+
+            :param instrument_shares:
+            :param end_date:
+            :param dividend_action:
+            :param icon:
+            :param name:
+
+            :return: dict     
             """
             sleep(self.delay)
 
@@ -1236,12 +1246,17 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def delete_pie(self, pie_id: str) -> dict:
             """
-            
+
+            :param pie_id:
+
+            :return: dict 
             """
             sleep(self.delay)
 
@@ -1252,12 +1267,17 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def fetch_pie(self, pie_id) -> dict:
             """
+
+            :param pie_id:
             
+            :return: dict
             """
             sleep(self.delay)
 
@@ -1272,16 +1292,26 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def update_pie(self, pie_id: str, 
                        instrument_shares: dict, 
                        end_date: str, goal: int, 
                        dividend_action: str, 
-                       icon: str = "Home", 
-                       name: str = "string") -> dict:
+                       icon: str, 
+                       name: str) -> dict:
             """
+
+            :param instrument_shares:
+            :param end_date:
+            :dividend_action:
+            :param icon:
+            :param name:
+
+            :return dict:
             """
             sleep(self.delay)
 
@@ -1302,8 +1332,10 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def equity_orders(self) -> dict:
             """
@@ -1316,8 +1348,10 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def limit_order(self, 
                         limit_price: float, 
@@ -1325,7 +1359,13 @@ class Apitkey:
                         instrument: str,
                         time_validity: str) -> dict:
             """
-        
+
+            :param limit_price:
+            :param quantity:
+            :param instrument:
+            :param time_validity:
+
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1346,11 +1386,18 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def market_order(self, instrument: str, quantity: float) -> dict:
             """
+
+            :param instrument:
+            :param quantity:
+
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1369,8 +1416,10 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def stop_order(self, 
                        instrument: str, 
@@ -1378,6 +1427,13 @@ class Apitkey:
                        stop_price: float, 
                        time_validity: str) -> dict:
             """
+
+            :param instrument:
+            :param quantity:
+            :param stop_price:
+            :param time_validity:
+
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1398,8 +1454,10 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def stop_limit_order(self,
                              limit_price: float, 
@@ -1409,7 +1467,14 @@ class Apitkey:
                              time_validity: str, 
                              ) -> dict:
             """
-            
+
+            :param limit_price:
+            :param quantity:
+            :param instrument:
+            :param stop_priceL
+            :param time_validity:
+
+            :return: dict        
             """
 
             sleep(self.delay)
@@ -1431,11 +1496,16 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def cancel_order(self, order_id) -> dict:
             """
+
+            :param order_id:
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1447,11 +1517,15 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
         
         def fetch_order(self, order_id) -> dict:
             """
+            :param order_id:
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1463,11 +1537,15 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def account_data(self) -> dict:
             """
+
+            return account cash 
             """
 
             sleep(self.delay)
@@ -1477,12 +1555,14 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def account_meta(self) -> dict:
             """
-            
+            returns account meta.
             """
 
             sleep(self.delay)
@@ -1498,7 +1578,7 @@ class Apitkey:
 
         def fetch_all_positions(self) -> dict:
             """
-            
+            return all positions in dict
             """
 
             sleep(self.delay)
@@ -1513,6 +1593,9 @@ class Apitkey:
 
         def fetch_position(self, instrument: str) -> dict:
             """
+            
+            :param instrument:
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1522,11 +1605,19 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def order_history(self, instrument: str, limit: int = 20, cursor: int = 0) -> dict:
             """
+
+            :param instrument:
+            :param limit:
+            :param cursor:
+
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1542,11 +1633,18 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def paid_out_dividends(self, instrument: str, limit: int = 20, cursor: int = 0) -> dict:
             """
+            :param instrument:
+            :param limit:
+            :param cursor:
+
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1576,8 +1674,10 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def export_csv(self, 
                        time_from: str,
@@ -1587,6 +1687,14 @@ class Apitkey:
                        include_orders: bool = True,
                        include_transactions: bool = True):
             """
+            :param time_from:
+            :param time_to:
+            :param include_dividends:
+            :param include_interest:
+            :param include_orders:
+            :param include_transactions:
+
+            :return: csv
             """
 
             sleep(self.delay)
@@ -1611,11 +1719,17 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
 
         def transactions(self, cursor: int = 0, limit: int = 20) -> dict:
             """
+
+            :param cursor:
+            :param limit:
+            :return: dict
             """
 
             sleep(self.delay)
@@ -1630,6 +1744,8 @@ class Apitkey:
             
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return response.status_code
             else:
-                pass
+                return response.json()
             
