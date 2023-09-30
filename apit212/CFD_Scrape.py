@@ -108,5 +108,3 @@ def get_data(search_value, sleep_time: float = 0.01):
     driver.close()
     return "Scrap completed"
 
-
-print(get_data("DENMARK"))
