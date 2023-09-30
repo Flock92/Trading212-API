@@ -15,7 +15,7 @@ import os
 from typing import Any
 import pandas as pd
 
-class _Constant:
+class __Constant:
 
     running = False
     error = False
@@ -114,7 +114,7 @@ class _Constant:
         self.txt = func_name
 
 
-class FileHandler:
+class __FileHandler:
 
     directory = ""
 
@@ -220,8 +220,8 @@ class Apit212:
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
 
-        self.fh = FileHandler()
-        self.constant = _Constant()
+        self.fh = __FileHandler()
+        self.constant = __Constant()
 
     def setup(self, username: str, password: str, mode: str, timeout: int = 2, _beauty: bool = True) -> None:
         """
@@ -350,8 +350,16 @@ class Apit212:
                 if "_rdt_uuid" in cookie["name"]:
                     self.headers["Cookie"] += f"{cookie['name']}={cookie['value']};"
 
+            sleep(self.interval)
+    
+            r = requests.get(url=f"{self.url}/auth/validate", headers=self.headers)
 
-            self.constant.end()
+            if r.status_code == 200:
+                self.constant.end()
+                return r.status_code
+            else:
+                self.constant.end()
+                return r.status_code    
 
     def _reconnect(self) -> None:
         """
@@ -382,6 +390,7 @@ class Apit212:
             return r.status_code
         else:
             self.fh.delete_file(filename="_cookies")
+            return r.status_code
 
 
 class CFD(object):
@@ -774,7 +783,7 @@ class CFD(object):
                    'stopDistance': stop_loss,
                    'targetPrice': target_price}
         
-        r = requests.get(url=f"{self.url}/rest/v2/trading/open-positions", 
+        r = requests.post(url=f"{self.url}/rest/v2/trading/open-positions", 
                          headers=self.headers, data=json.dumps(payload))
         
         return r.json()
@@ -1121,3 +1130,506 @@ class Equity(object):
                          headers=self.headers, params=params)
         
         return r.json()
+
+
+class Apitkey:
+
+    def __init__(self) -> None:
+        pass
+
+    class Equity:
+
+        def __init__(self, api_key: str, mode: str) -> None:
+            """
+            Login using the trading212 official API key
+
+            :param API_key:
+            :param mode:
+            """
+
+            self.mode = mode
+
+            self.delay = 1.5
+
+            self.url = f"https://{mode}.trading212.com/api/v0/equity"
+            self.url2 = f"https://{mode}.trading212.com/api/v0"
+
+            self.headers = {"Authorization": f"{api_key}"}
+
+            response = requests.get(url=f"{self.url}/metadata/exchanges", headers=self.headers)
+
+            if response.status_code == 200:
+                pass
+            elif response.status_code == 404:
+                return response.status_code
+            else:
+                return response.status_code
+
+        def exchange_list(self) -> dict:
+            """
+
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/metadata/exchanges", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def instrument_list(self) -> dict:
+            """
+            
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/metadata/instruments", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def pies(self) -> dict:
+            """
+            """
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/pies", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def create_pie(self, instrument_shares: dict, 
+                       end_date: str, goal: int, 
+                       dividend_action: str, 
+                       icon: str = "Home", 
+                       name: str = "string") -> dict:
+            """
+            
+            """
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            payload = {
+                "dividendCashAction": dividend_action,
+                "endDate": end_date,
+                "goal": goal,
+                "icon": icon,
+                "instrumentShares": instrument_shares,
+                "name": name,
+            }
+
+            response = requests.post(url=f"{self.url}/pies", 
+                                    headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def delete_pie(self, pie_id: str) -> dict:
+            """
+            
+            """
+            sleep(self.delay)
+
+            param = pie_id
+
+            response = requests.delete(url=f"{self.url}/pies", 
+                                    headers=self.headers, params=param)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def fetch_pie(self, pie_id) -> dict:
+            """
+            
+            """
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            param = pie_id
+
+            response = requests.get(url=f"{self.url}/pies", 
+                                    headers=headers, params=param)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def update_pie(self, pie_id: str, 
+                       instrument_shares: dict, 
+                       end_date: str, goal: int, 
+                       dividend_action: str, 
+                       icon: str = "Home", 
+                       name: str = "string") -> dict:
+            """
+            """
+            sleep(self.delay)
+
+            param = pie_id
+
+            payload = {
+                "dividendCashAction": dividend_action,
+                "endDate": end_date,
+                "goal": goal,
+                "icon": icon,
+                "instrumentShares": instrument_shares,
+                "name": name,
+            }
+
+            response = requests.get(url=f"{self.url}/pies", 
+                                    headers=self.headers, params=param,
+                                    json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def equity_orders(self) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/orders", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def limit_order(self, 
+                        limit_price: float, 
+                        quantity: float, 
+                        instrument: str,
+                        time_validity: str) -> dict:
+            """
+        
+            """
+
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            payload = {
+                "limitPrice":limit_price,
+                "quantity":quantity,
+                "ticker":instrument,
+                "timeValidity":time_validity
+            }
+
+            response = requests.post(url=f"{self.url}/orders/limit", 
+                                    headers=self.headers, json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def market_order(self, instrument: str, quantity: float) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            payload = {
+                "quantity":quantity,
+                "ticker":instrument,
+            }
+
+            response = requests.post(url=f"{self.url}/orders/market", 
+                                    headers=self.headers, json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def stop_order(self, 
+                       instrument: str, 
+                       quantity: float, 
+                       stop_price: float, 
+                       time_validity: str) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            payload = {
+                "quantity":quantity,
+                "stopPrice":stop_price,
+                "ticker":instrument,
+                "timeValidity":time_validity
+            }
+
+            response = requests.post(url=f"{self.url}/orders/stop", 
+                                    headers=self.headers, json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def stop_limit_order(self,
+                             limit_price: float, 
+                             quantity: float, 
+                             instrument: str,
+                             stop_price: float,
+                             time_validity: str, 
+                             ) -> dict:
+            """
+            
+            """
+
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            payload = {
+                "limitPrice":limit_price,
+                "quantity":quantity,
+                "stopPrice":stop_price,
+                "ticker":instrument,
+                "timeValidity":time_validity
+            }
+
+            response = requests.post(url=f"{self.url}/orders/stop_limit", 
+                                    headers=self.headers, json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def cancel_order(self, order_id) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            param = order_id
+
+            response = requests.delete(url=f"{self.url}/orders", 
+                                    headers=self.headers, params=param)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+        
+        def fetch_order(self, order_id) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            param = order_id
+
+            response = requests.get(url=f"{self.url}/orders", 
+                                    headers=self.headers, params=param)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def account_data(self) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/account/cash", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def account_meta(self) -> dict:
+            """
+            
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/account/info", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return response.status_code
+                pass
+
+        def fetch_all_positions(self) -> dict:
+            """
+            
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}portfolio", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def fetch_position(self, instrument: str) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url}/portfolio/{instrument}", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def order_history(self, instrument: str, limit: int = 20, cursor: int = 0) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            params = {
+                "cursor": cursor,
+                "ticker": instrument,
+                "limit": limit
+            }
+
+            response = requests.get(url=f"{self.url}/history/orders", 
+                                    headers=self.headers, params=params)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def paid_out_dividends(self, instrument: str, limit: int = 20, cursor: int = 0) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+            
+            params = {
+                "cursor": cursor,
+                "ticker": instrument,
+                "limit": limit
+            }
+
+            response = requests.get(url=f"{self.url2}/history/dividends", 
+                                    headers=self.headers, params=params)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+            
+        def export_list(self) -> list:
+            """
+            """
+
+            sleep(self.delay)
+
+            response = requests.get(url=f"{self.url2}/history/exports", 
+                                    headers=self.headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def export_csv(self, 
+                       time_from: str,
+                       time_to: str,
+                       include_dividends: bool = True, 
+                       include_interest: bool = True,
+                       include_orders: bool = True,
+                       include_transactions: bool = True):
+            """
+            """
+
+            sleep(self.delay)
+
+            headers = self.headers
+
+            headers.__setitem__("Content-Type", "application/json")
+
+            payload = {
+                "dataIncluded": {
+                    "includeDividends":include_dividends,
+                    "includeInterest":include_interest,
+                    "includeOrders":include_orders,
+                    "includeTransactions":include_transactions,
+                },
+                "timeFrom": time_from,
+                "timeTo": time_to
+            }
+
+            response = requests.post(url=f"{self.url2}/history/exports", 
+                                    headers=self.headers, json=payload)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+
+        def transactions(self, cursor: int = 0, limit: int = 20) -> dict:
+            """
+            """
+
+            sleep(self.delay)
+
+            params = {
+                "cursor": cursor,
+                "limit": limit
+            }
+
+            response = requests.get(url=f"{self.url2}/history/transactions", 
+                                    headers=self.headers, params=params)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                pass
+            
