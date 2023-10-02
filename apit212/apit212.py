@@ -15,7 +15,7 @@ import os
 from typing import Any
 import pandas as pd
 
-class __Constant:
+class _Constant:
 
     running = False
     error = False
@@ -114,7 +114,7 @@ class __Constant:
         self.txt = func_name
 
 
-class __FileHandler:
+class FileHandler:
 
     directory = ""
 
@@ -220,8 +220,8 @@ class Apit212:
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
 
-        self.fh = __FileHandler()
-        self.constant = __Constant()
+        self.fh = FileHandler()
+        self.constant = _Constant()
 
     def setup(self, username: str, password: str, mode: str, timeout: int = 2, _beauty: bool = True) -> None:
         """
