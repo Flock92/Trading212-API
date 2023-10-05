@@ -15,6 +15,8 @@ import os
 from typing import Any
 import pandas as pd
 
+from selenium.common.exceptions import ScreenshotException
+
 class _Constant:
 
     running = False
@@ -114,7 +116,7 @@ class _Constant:
         self.txt = func_name
 
 
-class FileHandler:
+class _FileHandler:
 
     directory = ""
 
@@ -220,7 +222,7 @@ class Apit212:
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.DEBUG)
 
-        self.fh = FileHandler()
+        self.fh = _FileHandler()
         self.constant = _Constant()
 
     def setup(self, username: str, password: str, mode: str, timeout: int = 2, _beauty: bool = True) -> None:
@@ -339,6 +341,8 @@ class Apit212:
             if self._saveCookies == True:
                 self.fh.create_file(filename="_cookies", data=cookies)
 
+            self.headers['Cookie'] = ""
+
             # Update header variable
             for cookie in cookies:
                 if f"TRADING212_SESSION_{self.mode.upper()}" in cookie['name']:
@@ -390,6 +394,7 @@ class Apit212:
             return r.status_code
         else:
             self.fh.delete_file(filename="_cookies")
+            self.headers['Cookie'] = ""
             return r.status_code
 
 
