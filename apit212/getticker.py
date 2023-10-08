@@ -44,8 +44,8 @@ def find_api_ticker(symbol: str, full_name: str = None, isin: str = None,
 
     if len(search_results) > 1:
         print("Multiple values found: Try using isin")
-        print(search_results)
+        return search_results
     else:
-        print(search_results)
+        return search_results
 
     return
