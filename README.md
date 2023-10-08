@@ -10,6 +10,34 @@ I will continue to work on this project and would appriciate any feedback.
 * Python3
 * Firefox
 
+## TempFix
+
+The trading212 platform uses their own ticker symbols for example "META" = "FB" you will need to use the getticker.py script to find the correct ticker to run your script. you will also need to download the api_tickers.csv file.
+
+```py
+
+from getticker import find_api_ticker
+
+
+ticker = "BT"
+
+info = find_api_ticker(symbol=ticker, full_name="BT Group", 
+                       currency="GBP", countryOfOrigin="GB", isin="GB0030913577",
+                       filePath="C:\\Users\\Flock\\OneDrive\\Desktop\\financial mathematics\\hidden\\api_tickers.csv"))
+                       
+print(info)
+
+```
+
+The code above returns
+
+```bash
+
+{'BT': {'fullName': 'BT Group', 'isin': 'GB0030913577', 'ticker': 'BT'}}
+
+```
+The value for ticker is the ticker you need to use.
+
 ## Installation
 
 pip install apit212
