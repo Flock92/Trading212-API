@@ -1,7 +1,10 @@
 # Due to the trading212 having different ticker symbols for some tickers for example META is FB. you can use this script to find the correct symbol to use the api
 # Some ticker may still not work. for example tickers with a '#' seems to have issues with the request library I will work on getting this sorted
 # so use this feature you will have to also download the api_tickerList.csv file.
-
+import pandas as pd
+import pickle as pk
+from time import sleep
+from os import name
 
 def find_api_ticker(symbol: str, full_name: str = None, isin: str = None, 
                     countryOfOrigin: str = None, currency: str = None, filePath: str = None) -> str:
@@ -11,7 +14,7 @@ def find_api_ticker(symbol: str, full_name: str = None, isin: str = None,
         if name == "nt":
             path = ".\\api_tickers.csv"
         else:
-            path = ".\\api_tickers.csv"
+            path = "./api_tickers.csv"
     else:
         path = filePath
 
@@ -44,8 +47,8 @@ def find_api_ticker(symbol: str, full_name: str = None, isin: str = None,
 
     if len(search_results) > 1:
         print("Multiple values found: Try using isin")
-        return search_results
+        print(search_results)
     else:
-        return search_results
+        print(search_results)
 
     return
