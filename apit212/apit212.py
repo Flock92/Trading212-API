@@ -9,6 +9,8 @@ from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from threading import Thread
+from pandas import DataFrame
+from pandas import read_pickle
 import logging
 import sys
 import os
@@ -401,6 +403,8 @@ class Apit212:
 class CFD(object):
 
     def __init__(self, cred: Apit212, dealer: str = "AVUSUK", lang: str = "EN") -> None:
+
+        self.api = cred
 
         # Create time object
         self.now = datetime.now()
@@ -821,8 +825,6 @@ class CFD(object):
 
         quantity = data[0]["quantity"]
 
-        current_price = self.fast_price()
-
         payload = {'coeff': {
             'positionId': f'{position_id}',
             'quantity': quantity,
@@ -1056,7 +1058,7 @@ class Equity(object):
                    "limitPrice":limitPrice,"orderType":orderType,"quantity":quantity,
                    "stopPrice":stopPrice,"timeValidity":timeValidity}
         
-        r = self.s.post(url=f"{self.url}/rest/public/added-costs", 
+        r = requests.post(url=f"{self.url}/rest/public/added-costs", 
                         headers=self.headers, data=json.dumps(payload))
         
         return r.json()
@@ -1754,3 +1756,132 @@ class Apitkey:
             else:
                 return response.json()
             
+
+class Tickers:
+
+    def __init__(self) -> None:
+        """Find the correct ticker for the trading212 platform"""
+
+        if os.name == 'nt':
+            path = "apit212\\data\\api_tickers.csv"
+        else:
+            path = "apit212/data/api_tickers.csv"
+
+        # look for ticker file
+        if os.path.isfile(path=path):
+            pass
+        else:
+            raise FileNotFoundError(f'{path} missing')
+
+    def __get_api_data(self) -> DataFrame:
+        """"""
+        if os.name == 'nt':
+            path = "apit212\\data\\api_tickers.csv"
+        else:
+            path = "apit212/data/api_tickers.csv"
+
+        df = DataFrame(read_pickle(path))
+
+        return df
+
+    def fetch_symbols(self, symbol: str = None, ISIN: str = None, full_name: str = None) -> list:
+        """adds instrument to the order book."""
+
+        if symbol:
+            data = self.find_by_symbol(symbol=symbol.upper())
+
+            if len(data) > 0:
+                return data
+        
+        if ISIN:
+            data =  self.find_by_isin(ISIN=ISIN)
+
+            if len(data) > 0:
+                return data
+        
+        if full_name:
+            data = self.find_by_name(full_name=full_name)
+        
+            if len(data) > 0:
+                return data
+        
+        return []
+    
+    def find_by_symbol(self, symbol: str) -> list:
+        """find ticker using symbol"""
+
+        df = self.__get_api_data()
+
+        data = df[df.shortName == symbol].to_dict('records')
+
+        return data
+    
+    def find_by_isin(self, ISIN: str) -> list:
+        """find ticker using isin"""
+
+        df = self.__get_api_data()
+
+        data = df[df['isin'] == ISIN].to_dict('records')
+
+        return data
+    
+    def find_by_name(self, full_name: str) -> list:
+        """find ticker by name"""
+
+        df = self.__get_api_data()
+
+        results = []
+
+        for value in df['fullName']:
+            if full_name in value:
+                data = df[df['fullName'] == value].to_dict('records')
+                results.append(data[0])
+
+        if len(results) == 0 or len(results) > 1:
+
+            results = []
+
+            words = full_name.split(' ')
+
+            for i in enumerate(words):
+                if len(i[1]) < 3:
+                    words[i[0]] = i[1].upper()
+                else:
+                    words[i[0]] = i[1].capitalize()
+
+            retry = ' '.join([w for w in words]).strip()
+
+            for value in df['fullName']:
+                if retry in value:
+                    data = df[df['fullName'].isin([value])].to_dict('records')
+                    results.append(data[0])
+
+        return results
+    
+    def find_by_country(self, country: str) -> list:
+        """"""
+
+        df = self.__get_api_data()
+
+        data = df[df['countryOfOrigin'].isin([country])].to_dict('records')
+
+        return data
+    
+    def find_by_type(self, _type: str) -> list:
+        """"""
+
+        df = self.__get_api_data()
+
+        data = df[df['type'].isin([_type])].to_dict('records')
+
+        return data
+     
+    def find_by_ticker(self, ticker: str) -> list:
+        """find ticker using ticker (trading212 platform tickers)"""
+
+        df = self.__get_api_data()
+
+        data = df[df['ticker'] == ticker].to_dict('records')
+
+        return data  
+                
