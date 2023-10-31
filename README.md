@@ -10,34 +10,6 @@ I will continue to work on this project and would appriciate any feedback.
 * Python3
 * Firefox
 
-## TempFix
-
-The trading212 platform uses their own ticker symbols for example "META" = "FB" you will need to use the getticker.py script to find the correct ticker to run your script. you will also need to download the api_tickers.csv file.
-
-```py
-
-from getticker import find_api_ticker
-
-
-ticker = "BT"
-
-info = find_api_ticker(symbol=ticker, full_name="BT Group", 
-                       currency="GBP", countryOfOrigin="GB", isin="GB0030913577",
-                       filePath="C:\\Users\\Flock\\OneDrive\\Desktop\\financial mathematics\\hidden\\api_tickers.csv"))
-                       
-print(info)
-
-```
-
-The code above returns
-
-```bash
-
-{'BT': {'fullName': 'BT Group', 'isin': 'GB0030913577', 'ticker': 'BT'}}
-
-```
-The value for ticker is the ticker you need to use.
-
 ## Installation
 
 pip install apit212
@@ -98,6 +70,62 @@ api.setup(username="flock92@account.api", password="pass******", mode="demo")
 
 ```
 ---
+
+# Correct Ticker
+
+This API is useless without the correct ticker symbol so i've got a solution.
+
+```py
+
+from apit212 import Tickers
+
+ticker = Tickers()
+
+print(ticker.fetch_symbols(symbol='META'))
+
+print(ticker.find_by_name(full_name='tesla'))
+
+```
+
+## console
+
+There is quite a bit of data to read through but the key you are after is *ticker* this will return the symbol used by the trading212 platform.
+
+```bash
+
+[{'ticker': 'FB', 'type': 'STOCK', 'currency': 'USD', 'shortName': 'META', 'fullName': 'Meta Platforms', 'description': 'Meta Platforms Inc', 'minTrade': 0.1, 'digitsPrecision': 2, 'exchangeId': 68, 'tradable': True, 'underlyingInstrumentTicker': 'FB_US_EQ', 'underlyingLeverageCoefficient': 1.0, 'dealerExclusions': [], 'maxOpenLong': 1121, 'leverage': '1:5', 'insignificantDigits': 0, 'baseTicker': nan, 'expiryDate': nan, 'minTradeSizeCoefficient': 10.0, 'isin': 'US30303M1027', 'countryOfOrigin': 'US', 'quantityPrecision': 1.0, 'priorityIndex': 25.0, 'maxTrade': nan, 'conditionalVisibility': nan, 'suspended': nan}]
+[{'ticker': 'TSLA', 'type': 'STOCK', 'currency': 'USD', 'shortName': 'TSLA', 'fullName': 'Tesla', 'description': 'Tesla, Inc.', 'minTrade': 0.1, 'digitsPrecision': 2, 'exchangeId': 68, 'tradable': True, 'underlyingInstrumentTicker': 'TSLA_US_EQ', 'underlyingLeverageCoefficient': 1.0, 'dealerExclusions': [], 'maxOpenLong': 1405, 'leverage': '1:5', 'insignificantDigits': 0, 'baseTicker': nan, 'expiryDate': nan, 'minTradeSizeCoefficient': 10.0, 'isin': 'US88160R1014', 'countryOfOrigin': 'US', 'quantityPrecision': 1.0, 'priorityIndex': 100.0, 'maxTrade': nan, 'conditionalVisibility': nan, 'suspended': nan}]
+
+
+```
+
+### example
+
+```py
+
+from apit212 import Tickers
+
+ticker = Tickers()
+
+meta = ticker.fetch_symbols(symbol='META')
+
+print(len(meta))
+
+print(meta[0]['ticker'])
+
+```
+
+#### console
+
+finding a ticker using the widely used ticker will often return 1 result but on some occasions you may get multiple results
+so its good practice to check the len of the string returned.
+
+```bash
+
+1
+FB
+
+```
 
 # CFD or Trade Equity
 
@@ -838,7 +866,7 @@ The *close_position* function will submit a request to cancel a open position.
 ```py
 
 
-close_position = cfd.close_position(position_id=market_order, quantity=market_order, current_price=current_price)
+close_position = cfd.close_position(position_id='ordexxxxx', current_price=current_price)
 
 
 ```
