@@ -704,22 +704,42 @@ class CFD(object):
         data = self.get_position(position_id=position_id)
 
         direction = data[0]["direction"]
-        price = data[0]["price"]
 
         if direction == "buy":
-            distance = distance
+            distance = abs(distance)
         elif direction == "sell":
-            distance = distance*-1
+            distance = -abs(distance)
         else:
             return {"code":"noDirection"}
 
         payload = {"ts": {"distance": distance}, "notify": f"{notify}"}
 
+        price = data[0]["price"]
+
+        try:
+            limit = data[0]["limitPrice"]
+        except KeyError:
+            limit == None
+
+        try:
+            stop = data[0]["stopPrice"]
+        except KeyError:
+            stop = None
+
+        if limit != None or stop != None:
+            payload['tp_sl'] = {}
+            
+            if limit != None:
+                payload['tp_sl'].__setitem__('takeProfit', limit)
+
+            if stop != None:
+                payload['tp_sl'].__setitem__('stopLoss', stop)
+
         r = requests.put(url=f"{self.url}/rest/v2/pending-orders/associated/{position_id}", 
                          headers=self.headers, data=json.dumps(payload))
         
         return r.json()
-
+        
     def fundamentals(self, instrument: str, language: str = "en") -> dict:
         """
         """
