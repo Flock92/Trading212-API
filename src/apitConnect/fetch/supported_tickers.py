@@ -1,4 +1,4 @@
-async def fetch_summary(self, x_trader_client: str):
+async def fetch_supported_tickers(self, x_trader_client: str):
     """
     Executes a fetch request within the current browser context
     to maintain session headers and cookies.
@@ -6,7 +6,7 @@ async def fetch_summary(self, x_trader_client: str):
     if not self.connector.page:
         raise RuntimeError("Browser page not initialized. Call connect() first.")
 
-    url = f"https://{self.mode}.services.trading212.com/rest/v1/customers/accounts/summary"
+    url = f"https://{self.mode}.services.trading212.com/rest/instrument-analyses/v1/summaries/supported-tickers"
     base_url = "https://app.trading212.com/"
 
     js_script = (
