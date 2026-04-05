@@ -1,0 +1,6 @@
+userdata/
+__pycache__/
+.env
+*.log
+build/
+.venv/
