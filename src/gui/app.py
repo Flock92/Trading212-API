@@ -22,7 +22,7 @@ from qasync import QEventLoop
 from src.gui.styles import get_stylesheet
 from src.apitConnect.event import event_bus, EventType, Event, Listener # Added Listener
 from src.apitConnect.core.network.supervisor import ApiSupervisor
-from src.apitConnect.models.websocket import TickerModel, ScheduleBatchModel
+from src.apitConnect.models.websocket import TickerModel, ScheduleBatchModel, AccountModel
 
 from .views.bot import BotView
 from .views.dashboard import DashboardView
@@ -38,9 +38,6 @@ class TickerDataManager:
     async def on_tick_received(self, event: Event):
         # The 'processed' key now contains our Data Class objects
         data = event.data.get("processed")
-        raw = event.data.get("raw")
-
-        # print(data)
 
         if not data:
             return
@@ -48,16 +45,12 @@ class TickerDataManager:
         # --- Case 1: Live Price Tickers ---
         if isinstance(data, TickerModel):
             symbol = data.symbol
-            # You can use data.bid, data.ask, or a custom mid_price property
-            price = data.bid 
 
-            self.latest_prices[symbol] = price
-
-        if hasattr(self.dashboard_view, "symbol_input"):
-            current_input = self.dashboard_view.symbol_input.text().strip().upper()
-            # TickerModel already handles the '#' stripping in our model definition
-            if symbol == current_input:
-                QTimer.singleShot(0, lambda: self.dashboard_view.set_current_price(price))
+            if hasattr(self.dashboard_view, "symbol_input"):
+                current_input = self.dashboard_view.symbol_input.text().strip().upper()
+                # TickerModel already handles the '#' stripping in our model definition
+                if symbol == current_input:
+                    QTimer.singleShot(0, lambda: self.dashboard_view.set_current_price(data))
 
         # --- Case 2: Market Schedules (The batch sync you received) ---
         elif isinstance(data, ScheduleBatchModel):
@@ -176,21 +169,35 @@ class TradingApp(QMainWindow):
         self.show_view(1)
 
     async def on_account_update(self, event: Event):
+        """
+        Handles incoming account data using the pre-parsed AccountModel.
+        Expects event.data to contain the 'processed' AccountModel instance.
+        """
         try:
+            # 1. Update Global Status Bar
             last_sync = event.timestamp.strftime("%H:%M:%S")
+            # Thread-safe UI update for the status ping
             QTimer.singleShot(0, lambda: self.status_ping.setText(f"API: LIVE ({last_sync})"))
 
-            data = event.data
-            if "account" in data:
-                account_root = data["account"].get("data", {})
-                cash = account_root.get("cash", {})
-                positions = account_root.get("open", {}).get("items", [])
+            # 2. Extract the AccountModel from the event
+            # Assuming your parser puts the model in event.data['processed']
+            account: AccountModel = event.data.get("processed")
 
-                # Update the specific view logic here
-                if hasattr(self.view_dash, "update_ui"):
-                    QTimer.singleShot(0, lambda: self.view_dash.update_ui(cash))
-                if hasattr(self.view_port, "update_table_data"):
-                    QTimer.singleShot(0, lambda: self.view_port.update_table_data(positions))
+            if not account or not isinstance(account, AccountModel):
+                # Log a warning if the data is malformed to avoid 'zeroing' the UI
+                print("[Account Update] Received empty or invalid model. Skipping UI refresh.")
+                return
+
+            # 3. Update Dashboard View
+            # We pass the full object so the dashboard can show Total, Free, and Trade Counts
+            if hasattr(self.view_dash, "update_ui"):
+                QTimer.singleShot(0, lambda: self.view_dash.update_ui(account))
+
+            # 4. Update Portfolio/Positions View
+            # We pass the list of items stored in the model
+            if hasattr(self.view_port, "update_table_data"):
+                QTimer.singleShot(0, lambda: self.view_port.update_table_data(account.open_items))
+
         except Exception as e:
             print(f"[Account Update Error] {e}")
 

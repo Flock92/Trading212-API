@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from src.apitConnect.models.websocket import TickerModel, AccountModel
 
 
 class DashboardView(QWidget):
@@ -58,60 +59,58 @@ class DashboardView(QWidget):
         table.verticalHeader().setVisible(False)
         return table
 
-    def set_current_price(self, raw_data):
+    def set_current_price(self, ticker: TickerModel):
         """
-        Parses: "QR|#QMAPR26|66.90|66.93|1772219477928"
+        Updates the UI table using a pre-parsed TickerModel instance.
         """
+        # Guard against None or wrong types
+        if not ticker or not isinstance(ticker, TickerModel):
+            return
+
         try:
-            parts = raw_data.split("|")
-            if len(parts) < 5:
-                return
+            symbol = ticker.symbol
 
-            symbol = parts[1]
-            bid = float(parts[2])
-            ask = float(parts[3])
-            ts_ms = int(parts[4])
+            # 1. Convert timestamp (ms) to readable format
+            # Use .fromtimestamp for a cleaner look
+            last_sync = datetime.fromtimestamp(ticker.timestamp / 1000.0).strftime("%H:%M:%S.%f")[:-3]
 
-            # Convert milliseconds timestamp to readable time
-            last_sync = datetime.fromtimestamp(ts_ms / 1000.0).strftime("%H:%M:%S.%f")[
-                :-3
-            ]
-            spread = ask - bid
-
+            # 2. Check if symbol exists in our table, if not, add it
             if symbol not in self.monitored_tickers:
                 self._add_new_ticker_row(symbol)
 
             row = self.monitored_tickers[symbol]
 
-            # 1. Update Bid/Ask Column
-            ba_item = QTableWidgetItem(f"{bid:.2f} / {ask:.2f}")
+            # 3. Update Bid/Ask Column with Price Direction Flash
+            ba_text = f"{ticker.bid:.2f} / {ticker.ask:.2f}"
+            ba_item = QTableWidgetItem(ba_text)
             ba_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            # Price Direction Flash Logic
-            mid = (bid + ask) / 2
-            if symbol in self.last_prices:
-                if mid > self.last_prices[symbol]:
-                    ba_item.setForeground(Qt.GlobalColor.green)
-                elif mid < self.last_prices[symbol]:
-                    ba_item.setForeground(Qt.GlobalColor.red)
-            self.last_prices[symbol] = mid
+            # Use the mid_price property from your dataclass
+            current_mid = ticker.mid_price
 
+            if symbol in self.last_prices:
+                if current_mid > self.last_prices[symbol]:
+                    ba_item.setForeground(Qt.GlobalColor.green)
+                elif current_mid < self.last_prices[symbol]:
+                    ba_item.setForeground(Qt.GlobalColor.red)
+
+            self.last_prices[symbol] = current_mid
             self.ticker_table.setItem(row, 1, ba_item)
 
-            # 2. Update Spread Column
-            spread_item = QTableWidgetItem(f"{spread:.3f}")
+            # 4. Update Spread Column (using your dataclass property)
+            spread_item = QTableWidgetItem(f"{ticker.spread:.3f}")
             spread_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             spread_item.setForeground(Qt.GlobalColor.gray)
             self.ticker_table.setItem(row, 2, spread_item)
 
-            # 3. Update Last Sync Column
+            # 5. Update Last Sync Column
             sync_item = QTableWidgetItem(last_sync)
             sync_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.ticker_table.setItem(row, 3, sync_item)
 
         except Exception as e:
-            print(f"[Dashboard Update Error] {e}")
-
+            print(f"[Dashboard UI Error] Failed to update {ticker.symbol}: {e}")
+            
     def _add_new_ticker_row(self, symbol):
         row_pos = self.ticker_table.rowCount()
         self.ticker_table.insertRow(row_pos)
@@ -192,27 +191,40 @@ class DashboardView(QWidget):
         l.addWidget(v)
         return card, v
 
-    def update_ui(self, total, free, ppl, margin):
-        self.val_total.setText(f"£{total:,.2f}")
-        self.val_free.setText(f"£{free:,.2f}")
-        self.val_ppl.setText(f"£{ppl:,.2f}")
-        self.val_blocked.setText(f"£{margin:,.2f}")
+    def update_ui(self, account: AccountModel):
+        """
+        Updates the dashboard labels using the AccountModel.
+        """
+        if not account:
+            return
 
-        # --- P/L Dynamic Coloring ---
-        # Determines if the value is profit (green), loss (red), or neutral
-        if ppl > 0:
+        # 1. Update Financial Labels
+        # Note: Use account.total for Equity and account.free for available cash
+        self.val_total.setText(f"£{account.total:,.2f}")
+        self.val_free.setText(f"£{account.free:,.2f}")
+        self.val_ppl.setText(f"£{account.ppl:,.2f}")
+        self.val_blocked.setText(f"£{account.margin:,.2f}")
+
+        # 2. Update Trade Count Labels (New Fields from your Model)
+        if hasattr(self, 'val_open_count'):
+            self.val_open_count.setText(str(account.open_trades_count))
+        if hasattr(self, 'val_pending_count'):
+            self.val_pending_count.setText(str(account.pending_orders_count))
+
+        # 3. P/L Dynamic Coloring
+        # We use the 'ppl' (Portfolio Profit/Loss) to determine the color
+        if account.ppl > 0:
             status = "profit"
-        elif ppl < 0:
+        elif account.ppl < 0:
             status = "loss"
         else:
             status = "neutral"
 
-        # Apply the property for the stylesheet to pick up
+        # Apply property and force refresh
         self.val_ppl.setProperty("status", status)
-
-        # Force a style refresh (required for dynamic properties in Qt)
         self.val_ppl.style().unpolish(self.val_ppl)
         self.val_ppl.style().polish(self.val_ppl)
 
+        # 4. Timestamp Update
         now = datetime.now().strftime("%H:%M:%S")
         self.last_updated_label.setText(f"Last update: {now}")
