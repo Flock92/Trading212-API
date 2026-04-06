@@ -25,6 +25,7 @@ class Trading212Socket:
         self._dispatch_map: Dict[str, Callable] = {
             "working-schedule-sync": self._parse_schedule,
             "pos": self._parse_account,  # Ensure this matches the actual T212 event name
+            "eqs": self._parse_ticker
         }
 
     async def setup_websocket_hooks(self, page):
@@ -95,56 +96,108 @@ class Trading212Socket:
 
     # --- Specialized Parsers ---
 
-    def _parse_ticker(self, payload: str) -> WSModel:
-        """Parses pipe-delimited price strings."""
+    from typing import Optional
+
+    def _parse_ticker(self, payload: str) -> Optional[TickerModel]:
+        """Parses pipe-delimited price strings: QR|#SYMBOL|BID|ASK|TIMESTAMP"""
+
+        # Quick guard for empty or non-string payloads
+        if not payload or not isinstance(payload, str):
+            return None
+
         parts = payload.split("|")
+
+        # T212 QR packets usually have 5 parts
         if len(parts) < 5:
-            return {"type": "malformed_ticker", "raw": payload}
-        
+            return None
+
         try:
+            # We strip/replace here to ensure the symbol is clean for your GUI lookups
+            clean_symbol = parts[1].replace("#", "").strip()
+
             return TickerModel(
                 channel=parts[0],
-                symbol=parts[1].replace("#", ""),
+                symbol=clean_symbol,
                 bid=float(parts[2]),
                 ask=float(parts[3]),
                 timestamp=int(parts[4]),
                 raw=payload
             )
-        except (ValueError, IndexError):
-            return {"type": "ticker_parse_error", "raw": payload}
+        except (ValueError, IndexError, TypeError) as e:
+            # Logging the error but returning None to protect the UI
+            print(f"[Ticker Parser Error] {e} for payload: {payload}")
+            return None
 
-    def _parse_schedule(self, payload: list) -> ScheduleBatchModel:
-        """Parses the market working hours list."""
-        items = [
-            MarketScheduleItem(
-                id=i.get('id'),
-                status=i.get('status'),
-                previousStatus=i.get('previousStatus', 'UNKNOWN'),
-                nextWorking=i.get('nextWorking'),
-                nextClosing=i.get('nextClosing')
-            ) for i in payload if isinstance(i, dict)
-        ]
-        return ScheduleBatchModel(count=len(items), items=items)
-
-    def _parse_account(self, payload: dict) -> AccountModel:
-        """Parses account balance and open positions."""
-        raw_positions = payload.get("positions", [])
-        positions = [
-            PositionModel(
-                id=p.get('id'),
-                symbol=p.get('symbol', '').replace("#", ""),
-                quantity=float(p.get('quantity', 0)),
-                averagePrice=float(p.get('averagePrice', 0)),
-                currentPrice=float(p.get('currentPrice', 0)),
-                ppl=float(p.get('ppl', 0))
-            ) for p in raw_positions
-        ]
+    def _parse_schedule(self, payload: list) -> Optional[ScheduleBatchModel]:
+        """Parses the market working hours list and creates a lookup table."""
         
-        return AccountModel(
-            balance=float(payload.get("balance", 0)),
-            equity=float(payload.get("equity", 0)),
-            positions=positions
+        if not isinstance(payload, list):
+            return None
+    
+        parsed_items = []
+        lookup_table = {}
+    
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+                
+            m_id = item.get('id')
+            if m_id is None:
+                continue
+            
+            schedule_item = MarketScheduleItem(
+                id=int(m_id),
+                status=item.get('status', 'CLOSED'),
+                previousStatus=item.get('previousStatus', 'UNKNOWN'),
+                nextWorking=item.get('nextWorking', ''),
+                nextClosing=item.get('nextClosing', '')
+            )
+            
+            parsed_items.append(schedule_item)
+            lookup_table[m_id] = schedule_item
+    
+        return ScheduleBatchModel(
+            count=len(parsed_items), 
+            items=parsed_items,
+            lookup=lookup_table
         )
+
+    def _parse_account(self, payload: dict) -> Optional[AccountModel]:
+        """Parses account balance. Returns None if data is missing to prevent UI 'zeroing'."""
+
+        # Safely navigate the nested dict
+        data = payload.get("data", {})
+        cash = data.get("cash")
+
+        # If 'cash' is missing, it's a partial or irrelevant update.
+        # Returning None tells the Event Bus/Manager: "Nothing to see here, don't update."
+        if not cash or not isinstance(cash, dict):
+            return None
+        
+        open_section = data.get("open", {})
+        pending_section = data.get("limitStop", {})
+
+        open_count = open_section.get("unfilteredCount", 0)
+        pending_count = pending_section.get("unfilteredCount", 0)
+
+        # Extract items if they exist (usually empty in the summary packet)
+        open_items = open_section.get("items", [])
+
+        try:
+            return AccountModel(
+                total=float(cash.get("total", 0.0)),
+                free=float(cash.get("free", 0.0)),
+                margin=float(cash.get("margin", 0.0)),
+                ppl=float(cash.get("ppl", 0.0)),
+                result=float(cash.get("result", 0.0)),
+                open_trades_count=int(open_count),
+                pending_orders_count=int(pending_count),
+                open_items=open_items
+            )
+        except (ValueError, TypeError) as e:
+            # Log it so you know why it failed, but don't return 0.0
+            print(f"[Parser Warning] Malformed cash data: {e}")
+            return None
 
     @staticmethod
     def _parse_frame(payload: str) -> Optional[list]:

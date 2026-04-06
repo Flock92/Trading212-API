@@ -16,18 +16,29 @@ class TickerModel:
     def mid_price(self) -> float:
         return (self.bid + self.ask) / 2
 
+    @property
+    def spread(self) -> float:
+        return abs(self.ask - self.bid)
+
 @dataclass(frozen=True)
 class MarketScheduleItem:
     id: int
     status: str
     previousStatus: str
-    nextWorking: str  # ISO Timestamp
-    nextClosing: str  # ISO Timestamp
+    nextWorking: str  
+    nextClosing: str  
 
+    @property
+    def is_tradable(self) -> bool:
+        """Helper to check if the market is currently active."""
+        return self.status.upper() in ("OPEN", "OVERNIGHT")
+    
 @dataclass(frozen=True)
 class ScheduleBatchModel:
     count: int
     items: List[MarketScheduleItem]
+    # This allows O(1) lookup: self.lookup[market_id]
+    lookup: Dict[int, MarketScheduleItem] 
     type: str = "schedule_batch"
 
 @dataclass(frozen=True)
@@ -41,9 +52,16 @@ class PositionModel:
 
 @dataclass(frozen=True)
 class AccountModel:
-    balance: float
-    equity: float
-    positions: List[PositionModel] = field(default_factory=list)
+    total: float
+    free: float
+    margin: float
+    ppl: float
+    result: float
+    # Trade Counts
+    open_trades_count: int = 0
+    pending_orders_count: int = 0
+    # Container for actual trade objects if/when they arrive
+    open_items: List[Any] = field(default_factory=list)
     type: str = "account"
 
 # A type alias for easier type checking in your views

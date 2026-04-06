@@ -38,6 +38,7 @@ class TickerDataManager:
     async def on_tick_received(self, event: Event):
         # The 'processed' key now contains our Data Class objects
         data = event.data.get("processed")
+        raw = event.data.get("raw")
 
         # print(data)
 
@@ -46,7 +47,6 @@ class TickerDataManager:
 
         # --- Case 1: Live Price Tickers ---
         if isinstance(data, TickerModel):
-            print("found a ticker model\n")
             symbol = data.symbol
             # You can use data.bid, data.ask, or a custom mid_price property
             price = data.bid 
@@ -61,7 +61,6 @@ class TickerDataManager:
 
         # --- Case 2: Market Schedules (The batch sync you received) ---
         elif isinstance(data, ScheduleBatchModel):
-            print("found a schedulebatch model\n")
 
             # Update a local cache of market statuses
             for item in data.items:
@@ -75,7 +74,6 @@ class TickerDataManager:
 
         # --- Case 3: Fallback for raw strings (Internal safety) ---
         elif isinstance(data, str):
-            print("found a str\n")
 
             try:
                 parts = data.split("|")

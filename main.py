@@ -84,7 +84,7 @@ def main():
     try:
         if args.gui:
             # GUI owns loop
-            run_gui(client=PlaywrightConnect(True))
+            run_gui(client=PlaywrightConnect(False))
 
         elif args.web:
             asyncio.run(run_web_server(headless=args.headless))
