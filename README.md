@@ -29,7 +29,7 @@ pip install apit212
 To launch the full suite—including the WebSocket client, the API Supervisor for trade execution, and the interactive Console Dashboard—you can use the following implementation.
 
 This setup initializes the core Client, starts the ApiSupervisor in a background task to handle incoming trade requests, and boots the AsyncConsoleDashboard.
-Python
+```Python
 
 import asyncio
 from src.apitConnect.core.client import Client
@@ -64,3 +64,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
+```
