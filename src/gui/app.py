@@ -91,7 +91,7 @@ class TradingApp(QMainWindow):
         self.client = client
         self.event_bus = event_bus 
 
-        self.setWindowTitle("Apit212 Pro Terminal")
+        self.setWindowTitle("Apit212")
         self.resize(1150, 650)
 
         # Main Layout Setup

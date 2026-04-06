@@ -15,20 +15,31 @@ def get_stylesheet(theme="Dark"):
         input_bg = "#FFFFFF"
         selection_bg = "#1F538D"
         selection_text = "#FFFFFF"
+        # Specific for dropdown lists
+        item_hover = "#E5E5E5"
     else:
         # Default Dark Theme
         bg_main = "#121212"
         bg_sidebar = "#1A1A1A"
         bg_card = "#1E1E1E"
         text_main = "#E2E2E2"
-        text_muted = "#AAAAAA"  # Brightened from #888888 for better contrast
+        text_muted = "#AAAAAA"
         border = "#333333"
         input_bg = "#252525"
         selection_bg = "#2A5C91"
         selection_text = "#FFFFFF"
+        # Specific for dropdown lists
+        item_hover = "#383838"
 
     return f"""
 /* --- Global Settings --- */
+/* Apply text color to EVERYTHING by default to prevent "invisible" text */
+QWidget {{
+    color: {text_main};
+    font-family: "Segoe UI", "Roboto", "Arial";
+    font-size: 14px;
+}}
+
 QMainWindow,
 QWidget#CentralWidget,
 QWidget#LoginView,
@@ -37,14 +48,10 @@ QWidget#PortfolioView,
 QWidget#SettingsView,
 QWidget#OrdersView {{
     background-color: {bg_main};
-    color: {text_main};
-    font-family: "Segoe UI", "Roboto", "Arial";
-    font-size: 14px;
 }}
 
 QLabel, QCheckBox, QRadioButton {{
     background-color: transparent;
-    color: {text_main};
 }}
 
 /* --- Sidebar Styling --- */
@@ -54,7 +61,6 @@ QFrame#Sidebar {{
 }}
 
 QLabel#SidebarLogo {{
-    color: {text_main};
     font-size: 22px;
     font-weight: bold;
     padding: 10px;
@@ -99,19 +105,6 @@ QPushButton#PrimaryBtn {{
 
 QPushButton#SecondaryBtn {{
     background-color: {border};
-    color: {text_main};
-}}
-
-QPushButton#CloseOrderBtn {{
-    background-color: #332222;
-    color: #FF5252;
-    border: 1px solid #553333;
-    font-size: 11px;
-}}
-
-QPushButton#CloseOrderBtn:hover {{
-    background-color: #FF5252;
-    color: white;
 }}
 
 QPushButton#LogoutBtn {{
@@ -124,7 +117,6 @@ QPushButton#LogoutBtn {{
 QLabel#DashboardHeader, QLabel#SettingsHeader, QLabel#OrdersHeader {{
     font-size: 24px;
     font-weight: bold;
-    color: {text_main};
 }}
 
 QFrame[class="StatCard"] {{
@@ -151,18 +143,16 @@ QTableWidget {{
     border: 1px solid {border};
     selection-background-color: {selection_bg};
     selection-color: {selection_text};
-    color: {text_main};
 }}
 
 QHeaderView::section {{
     background-color: {input_bg};
-    color: {text_main}; /* Changed from text_muted to main for visibility */
     padding: 8px;
     border: none;
     border-bottom: 2px solid {border};
 }}
 
-/* --- Inputs --- */
+/* --- Inputs & Dropdowns --- */
 QLineEdit, QComboBox, QSpinBox {{
     background-color: {input_bg};
     border: 1px solid {border};
@@ -173,6 +163,27 @@ QLineEdit, QComboBox, QSpinBox {{
 
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
     border: 1px solid #1F538D;
+}}
+
+/* 🔥 FIX: Dropdown Menu (The Popup List) 🔥 */
+QComboBox QAbstractItemView {{
+    background-color: {input_bg};
+    border: 1px solid {border};
+    selection-background-color: {selection_bg};
+    selection-color: {selection_text};
+    outline: none;
+}}
+
+/* Items inside the dropdown */
+QComboBox QAbstractItemView::item {{
+    padding: 8px;
+    background-color: {input_bg};
+    color: {text_main};
+}}
+
+QComboBox QAbstractItemView::item:hover {{
+    background-color: {item_hover};
+    color: {text_main};
 }}
 
 /* --- Settings Page --- */
@@ -194,10 +205,11 @@ QSpinBox#IntervalSpinBox, QLineEdit#DiscordInput {{
     color: #00FA9A;
     font-family: "Consolas", monospace;
 }}
+
 /* --- Scrollbars --- */
 QScrollBar:vertical, QScrollBar:horizontal {{
     border: none;
-    background: {bg_sidebar}; /* Slightly offset from main bg */
+    background: {bg_sidebar};
     width: 10px;
     height: 10px;
     margin: 0px;
@@ -206,51 +218,22 @@ QScrollBar:vertical, QScrollBar:horizontal {{
 QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
     background: {border};
     border-radius: 5px;
-    min-height: 20px;
 }}
 
-QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{
-    background: #1F538D; /* Primary color on hover */
-}}
-
-/* --- Settings Page Specifics (The Fix) --- */
+/* --- Scroll Area Fixes --- */
 QScrollArea#SettingsScrollArea {{
     border: none;
     background-color: transparent;
 }}
 
-/* This targets the internal container of the scroll area */
-QScrollArea#SettingsScrollArea > QWidget > QWidget {{
-    background-color: transparent;
-}}
-
-/* This ensures the viewport doesn't default to white */
-QScrollArea#SettingsScrollArea QWidget#qt_scrollarea_viewport {{
-    background-color: transparent;
-}}
-
-/* The container inside the scroll area often needs an explicit background if transparent fails */
 QWidget#SettingsContents {{
     background-color: {bg_main};
 }}
 
-QFrame#SettingsGroupFrame, QFrame#StatusCard {{
-    background-color: {bg_sidebar};
-    border: 1px solid {border};
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 10px;
-}}
-
 QFrame#TradePanel {{
-        background - color: {bg_card};
+    background-color: {bg_card};
     border: 1px solid {border};
     border-radius: 8px;
-}}
-
-QPushButton#CloseOrderBtn {{
-    margin: 2px 5px;
-    padding: 4px;
 }}
 
 /* --- Connection Status --- */
