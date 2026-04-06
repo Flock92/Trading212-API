@@ -21,6 +21,8 @@ from qasync import asyncSlot
 
 # New Event Architecture Imports
 from src.apitConnect.event import event_bus, EventType, Event, Listener
+from src.apitConnect.core.network.api import Api
+from src.apitConnect.core.network.supervisor import ApiSupervisor
 
 SERVICE_NAME = "Apit212_Trading_Bot"
 
@@ -167,6 +169,8 @@ class LoginView(QWidget):
         except Exception as e:
             if self._progress_task: self._progress_task.cancel()
             self.show_error(f"Auth Failed: {str(e)}")
+
+        
 
     async def on_progress_event(self, event: Event):
         """Updates the loading UI based on System Events."""

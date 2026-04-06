@@ -163,27 +163,46 @@ class Trading212Socket:
         )
 
     def _parse_account(self, payload: dict) -> Optional[AccountModel]:
-        """Parses account balance. Returns None if data is missing to prevent UI 'zeroing'."""
+        """Parses account balance and positions into a typed AccountModel."""
 
-        # Safely navigate the nested dict
+        # 1. Safely navigate the nested dict
         data = payload.get("data", {})
+        request = payload.get("request", [])
         cash = data.get("cash")
 
-        # If 'cash' is missing, it's a partial or irrelevant update.
-        # Returning None tells the Event Bus/Manager: "Nothing to see here, don't update."
+        # If 'cash' is missing, it's a partial update; ignore to prevent UI flickering
         if not cash or not isinstance(cash, dict):
             return None
-        
+
         open_section = data.get("open", {})
         pending_section = data.get("limitStop", {})
 
+        # 2. Extract Trade Counts
         open_count = open_section.get("unfilteredCount", 0)
         pending_count = pending_section.get("unfilteredCount", 0)
 
-        # Extract items if they exist (usually empty in the summary packet)
-        open_items = open_section.get("items", [])
+        # 3. Parse Items into PositionModel List
+        raw_items = open_section.get("items", [])
+        parsed_positions = []
 
         try:
+            for item in raw_items:
+                # Map raw JSON to our new PositionModel
+                pos = PositionModel(
+                    id=str(item.get("positionId", "")),
+                    symbol=str(item.get("code", "Unknown")),
+                    quantity=float(item.get("quantity", 0.0)),
+                    averagePrice=float(item.get("averagePrice", 0.0)),
+                    value=float(item.get("value", 0.0)),
+                    margin=float(item.get("margin", 0.0)),
+                    ppl=float(item.get("ppl", 0.0)),
+                    fxFee=float(item.get("fxFee", 0.0)),
+                    interest=float(item.get("interest", 0.0)),
+                    created=str(item.get("created", ""))
+                )
+                parsed_positions.append(pos)
+
+            # 4. Return the fully typed AccountModel
             return AccountModel(
                 total=float(cash.get("total", 0.0)),
                 free=float(cash.get("free", 0.0)),
@@ -192,11 +211,11 @@ class Trading212Socket:
                 result=float(cash.get("result", 0.0)),
                 open_trades_count=int(open_count),
                 pending_orders_count=int(pending_count),
-                open_items=open_items
+                open_items=parsed_positions  # Now a List[PositionModel]
             )
-        except (ValueError, TypeError) as e:
-            # Log it so you know why it failed, but don't return 0.0
-            print(f"[Parser Warning] Malformed cash data: {e}")
+
+        except (ValueError, TypeError, KeyError) as e:
+            print(f"[Parser Warning] Failed to parse account/position data: {e}")
             return None
 
     @staticmethod

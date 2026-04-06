@@ -1,4 +1,5 @@
 from src.apitConnect.models.model import FetchScript
+from typing import Union
 
 referrer = "https://app.trading212.com"
 
@@ -81,3 +82,16 @@ SWITCH_DEMO_LIVE_ENDPOINT = FetchScript(
     required_body_keys=["accountId"],
     referrer=referrer,
 )
+
+
+Api_endpoint = Union[
+    ACCOUNT_ENDPOINT, 
+    SUMMARY_ENDPOINT, 
+    SUMMARY_ENDPOINT, 
+    ADDITIONAL_INFO, 
+    MARKET_VALUE_ORDER_ENDPOINT, 
+    MARKET_VALUE_ORDER_ENDPOINT, 
+    CLOSE_ORDER_ENDPOINT,
+    SETTINGS_ENDPOINT,
+    SWITCH_DEMO_LIVE_ENDPOINT
+    ]

@@ -50,31 +50,22 @@ class TickerDataManager:
                 current_input = self.dashboard_view.symbol_input.text().strip().upper()
                 # TickerModel already handles the '#' stripping in our model definition
                 if symbol == current_input:
-                    QTimer.singleShot(0, lambda: self.dashboard_view.set_current_price(data))
+                    pass
+                
+            QTimer.singleShot(0, lambda: self.dashboard_view.set_current_price(data))
 
         # --- Case 2: Market Schedules (The batch sync you received) ---
         elif isinstance(data, ScheduleBatchModel):
+            # 1. Update your local cache with the entire pre-built lookup table
+            # This allows other parts of your app to do: self.market_cache.get(id).is_tradable
+            self.market_cache = data.lookup 
 
-            # Update a local cache of market statuses
-            for item in data.items:
-                # item is a MarketScheduleItem object
-                market_id = item.id
-                status = item.status # 'OPEN' or 'CLOSED'
-
-                # Example: Update a 'Market Status' indicator on the dashboard
-                if hasattr(self.dashboard_view, "update_market_status"):
-                    QTimer.singleShot(0, lambda: self.dashboard_view.update_market_status(item))
-
-        # --- Case 3: Fallback for raw strings (Internal safety) ---
-        elif isinstance(data, str):
-
-            try:
-                parts = data.split("|")
-                if len(parts) >= 3:
-                    symbol, price = parts[1].replace("#", ""), float(parts[2])
-                    self.latest_prices[symbol] = price
-            except Exception:
-                pass
+            # 2. Update the UI
+            # Since a batch contains many markets, you can either pass the whole batch 
+            # or just the items. Passing the whole batch is usually better for the Dashboard.
+            if hasattr(self.dashboard_view, "update_market_status"):
+                # We use a singleShot to pass the batch to the UI thread
+                QTimer.singleShot(0, lambda: self.dashboard_view.update_market_status(data))
 
 class TradingApp(QMainWindow):
     def __init__(self, client):
@@ -155,7 +146,7 @@ class TradingApp(QMainWindow):
         
         # 2. Account/Response Listener
         response_listener = Listener(
-            event_type=EventType.API_RESPONSE,
+            event_type=EventType.PIPELINE,
             handler=self.on_account_update
         )
 
@@ -166,6 +157,11 @@ class TradingApp(QMainWindow):
         self.sidebar.show()
         self.status_bar.show()
         asyncio.create_task(self._register_event_handlers())
+        try:
+            api_supervisor = ApiSupervisor(self.client, "demo")
+            asyncio.create_task(api_supervisor.start())
+        except Exception as e:  
+            print(e)
         self.show_view(1)
 
     async def on_account_update(self, event: Event):
@@ -185,7 +181,7 @@ class TradingApp(QMainWindow):
 
             if not account or not isinstance(account, AccountModel):
                 # Log a warning if the data is malformed to avoid 'zeroing' the UI
-                print("[Account Update] Received empty or invalid model. Skipping UI refresh.")
+                # print("[Account Update] Received empty or invalid model. Skipping UI refresh.")
                 return
 
             # 3. Update Dashboard View
@@ -196,7 +192,7 @@ class TradingApp(QMainWindow):
             # 4. Update Portfolio/Positions View
             # We pass the list of items stored in the model
             if hasattr(self.view_port, "update_table_data"):
-                QTimer.singleShot(0, lambda: self.view_port.update_table_data(account.open_items))
+                QTimer.singleShot(0, lambda: self.view_port.update_table_data(account))
 
         except Exception as e:
             print(f"[Account Update Error] {e}")

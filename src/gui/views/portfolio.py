@@ -23,7 +23,7 @@ class PortfolioView(QWidget):
     def __init__(self, client):
         super().__init__()
         self.client = client
-        self.setObjectName("PortfolioView")  # Linked to QWidget#PortfolioView in CSS
+        self.setObjectName("PortfolioView")
 
         layout = QVBoxLayout(self)
         self.setLayout(layout)
@@ -32,16 +32,27 @@ class PortfolioView(QWidget):
 
         # --- Header ---
         self.header_layout = QHBoxLayout()
+        
+        # Container for Title + Badge
+        title_container = QVBoxLayout()
         self.header = QLabel("Open Positions")
-        self.header.setObjectName("OrdersHeader")  # Uses the 24px bold font from CSS
+        self.header.setObjectName("OrdersHeader")
+        
+        # NEW: Trade Count Badge
+        self.count_badge = QLabel("0 Active Trades")
+        self.count_badge.setStyleSheet("color: #AAAAAA; font-size: 11px; font-weight: normal;")
+        
+        title_container.addWidget(self.header)
+        title_container.addWidget(self.count_badge)
+        self.header_layout.addLayout(title_container)
 
+        self.header_layout.addStretch()
+        
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("🔍 Search ticker...")
         self.search_bar.setFixedWidth(200)
         self.search_bar.textChanged.connect(self.filter_table)
 
-        self.header_layout.addWidget(self.header)
-        self.header_layout.addStretch()
         self.header_layout.addWidget(self.search_bar)
         layout.addLayout(self.header_layout)
 
@@ -51,28 +62,20 @@ class PortfolioView(QWidget):
         self.table.setHorizontalHeaderLabels(
             ["Order ID", "Ticker", "Qty", "Avg Price", "Current", "P/L", "Actions"]
         )
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
 
         # --- Summary Bar ---
         self.summary_bar = QFrame()
-        self.summary_bar.setObjectName(
-            "StatusCard"
-        )  # Linked to QFrame#StatusCard in CSS
+        self.summary_bar.setObjectName("StatusCard")
         self.summary_layout = QHBoxLayout(self.summary_bar)
 
         self.total_label = QLabel("TOTAL PORTFOLIO P/L:")
-        self.total_label.setObjectName(
-            "SettingsSectionLabel"
-        )  # Uses the muted uppercase style
+        self.total_label.setObjectName("SettingsSectionLabel")
 
         self.pl_value_label = QLabel("£0.00")
-        self.pl_value_label.setObjectName(
-            "StatValue"
-        )  # Links to the dashboard value font
+        self.pl_value_label.setObjectName("StatValue")
         self.pl_value_label.setProperty("status", "neutral")
 
         self.summary_layout.addWidget(self.total_label)
@@ -81,43 +84,68 @@ class PortfolioView(QWidget):
 
         layout.addWidget(self.summary_bar)
 
-    def update_table_data(self, positions):
-        """Primary target for EventBus live data updates."""
+    def update_table_data(self, account: AccountModel):
+        """
+        Updates the UI table using the full AccountModel.
+        """
+        # 1. Guard against empty data
+        if not account or not hasattr(account, 'open_items'):
+            return
+    
+        # 2. Update Header Badge (Using AccountModel stats)
+        if hasattr(self, 'count_badge'):
+            self.count_badge.setText(
+                f"{account.open_trades_count} Active | {account.pending_orders_count} Pending"
+            )
+    
+        # 3. Process Positions
+        positions = account.open_items
         self.table.setRowCount(len(positions))
-
+    
         for row, pos in enumerate(positions):
-            symbol = pos.get("code", "N/A")
-            pos_id = pos.get("positionId", "N/A")
-            qty = pos.get("quantity", 0)
-            avg_price = pos.get("averagePrice", 0)
-            current_price = pos.get("currentPrice", 0)
-            ppl = pos.get("ppl", 0)
-
-            self.table.setItem(row, 0, QTableWidgetItem(pos_id))
+            # Since we updated the parser, pos is now a PositionModel instance
+            pos_id = pos.id
+            symbol = pos.symbol.replace("#", "")
+            qty = pos.quantity
+            avg_price = pos.averagePrice
+            # Note: If currentPrice isn't in your PositionModel yet, 
+            # you might use pos.value / pos.quantity or 0.0
+            current_price = getattr(pos, 'currentPrice', 0.0) 
+            ppl = pos.ppl
+    
+            # Set table items
+            self.table.setItem(row, 0, QTableWidgetItem(str(pos_id)))
             self.table.setItem(row, 1, QTableWidgetItem(symbol))
-            self.table.setItem(row, 2, QTableWidgetItem(f"{qty:.4f}"))
+            
+            # Quantity and Prices
+            qty_item = QTableWidgetItem(f"{qty:.4f}")
+            qty_item.setForeground(QColor("#00fa9a" if qty > 0 else "#ff4500"))
+            self.table.setItem(row, 2, qty_item)
+            
             self.table.setItem(row, 3, QTableWidgetItem(f"£{avg_price:,.2f}"))
             self.table.setItem(row, 4, QTableWidgetItem(f"£{current_price:,.2f}"))
-
-            # P/L Column
-            pl_item = QTableWidgetItem(f"£{ppl:,.2f}")
-            # Note: QTableWidgetItem colors aren't directly CSS-linked,
-            # so we use your primary color palette here
-            color_hex = "#00fa9a" if ppl >= 0 else "#ff4500"
-            pl_item.setForeground(QColor(color_hex))
+    
+            # P/L Column with dynamic coloring
+            pl_text = f"£{ppl:,.2f}"
+            pl_item = QTableWidgetItem(pl_text)
+            pl_color = "#00fa9a" if ppl >= 0 else "#ff4500"
+            pl_item.setForeground(QColor(pl_color))
+            pl_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 5, pl_item)
-
-            # Close Button
+    
+            # Close Button Action
             close_btn = QPushButton("Close")
-            close_btn.setObjectName(
-                "CloseOrderBtn"
-            )  # Linked to QPushButton#CloseOrderBtn
+            close_btn.setObjectName("CloseOrderBtn")
+            # pid=pos_id freezes the ID for this specific row's lambda
             close_btn.clicked.connect(lambda chk, pid=pos_id: self.confirm_close(pid))
             self.table.setCellWidget(row, 6, close_btn)
-
-        self.calculate_summary()
+    
+        # Update footer summary if it exists
+        if hasattr(self, 'calculate_summary'):
+            self.calculate_summary()
 
     def calculate_summary(self):
+        """Calculates total P/L based on visible rows only (respects filtering)."""
         total_pl = 0.0
         for row in range(self.table.rowCount()):
             if not self.table.isRowHidden(row):
@@ -132,12 +160,9 @@ class PortfolioView(QWidget):
                         continue
 
         self.pl_value_label.setText(f"£{total_pl:,.2f}")
-
-        # Apply CSS property for P/L color
         status = "profit" if total_pl >= 0 else "loss"
         self.pl_value_label.setProperty("status", status)
-
-        # Force a style refresh
+        
         self.pl_value_label.style().unpolish(self.pl_value_label)
         self.pl_value_label.style().polish(self.pl_value_label)
 
@@ -163,6 +188,7 @@ class PortfolioView(QWidget):
 
     async def execute_close(self, order_id):
         try:
+            # Note: Ensure the API path matches your current client implementation
             await self.client.api().positions.close_position(order_id)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to close: {e}")

@@ -20,17 +20,18 @@ class Event:
 
     type: EventType = EventType.SYSTEM
     message: str = ""
+    command: str = ""
 
     data: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.utcnow)
     error: Optional[Exception] = None
 
     @classmethod
-    def api_request(cls, message: str, **data):
+    def api_request(cls, command: str, **data):
         corr_id = uuid.uuid4()
         return cls(
             type=EventType.API_REQUEST,
-            message=message,
+            command=command,
             correlation_id=corr_id,
             data=data
         )

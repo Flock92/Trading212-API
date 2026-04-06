@@ -1,5 +1,5 @@
 import asyncio
-from src.apitConnect.event import EventType, event_bus
+from src.apitConnect.event import EventType, event_bus, Event
 from src.apitConnect.models.model import _Client
 from src.apitConnect.core.endpoint import (
     ACCOUNT_ENDPOINT,
@@ -12,6 +12,7 @@ from src.apitConnect.core.endpoint import (
     SWITCH_DEMO_LIVE_ENDPOINT,
 )
 from src.apitConnect.core.network.api import Api  # Import the new Api class
+import uuid
 
 # Map approved commands to API instance methods
 APPROVED_CALLS = {
@@ -31,7 +32,7 @@ class ApiSupervisor:
 
     def __init__(self, client: _Client, mode: str = "demo"):
         self.client = client
-        self.api = Api(client, mode=mode)  # Initialize full API class
+        self.api = Api(client, mode=mode)
         self.is_running = True
 
     async def start(self):
@@ -41,55 +42,92 @@ class ApiSupervisor:
 
         while self.is_running:
             try:
-                args, kwargs = await command_queue.get()
-                command = kwargs.get("command")
-                payload = kwargs.get("payload", {})
+                # 1. Receive the Event object
+                event: Event = await command_queue.get()
+                
+                # 2. Extract metadata from the Event dataclass
+                corr_id = event.correlation_id
+                command = event.command
+                payload = event.data.get("payload", {})
 
                 if command not in APPROVED_CALLS:
+                    # Send response back with the SAME correlation_id
                     await event_bus.emit(
-                        EventType.API_RESPONSE,
-                        {"error": f"Command '{command}' not approved"},
+                        Event.api_response(
+                            message="error", 
+                            correlation_id=corr_id, 
+                            data={"error": f"Command '{command}' not approved"}
+                        )
                     )
                     continue
 
-                await self.dispatch(command, payload)
+                print("sending to dispatch")
+
+                # 3. Pass the corr_id to dispatch
+                await self.dispatch(command, payload, corr_id)
 
             except Exception as e:
-                await self.client.event_bus.emit(
-                    EventType.API_RESPONSE,
-                    {"error": f"Supervisor Loop Error: {str(e)}"},
+                # Fallback for loop errors (requires a generated or nil UUID if event failed to parse)
+                await event_bus.emit(
+                    Event.api_response(
+                        message="error", 
+                        correlation_id=getattr(event, 'correlation_id', None), 
+                        data={"error": f"Supervisor Loop Error: {str(e)}"}
+                    )
                 )
 
-    async def dispatch(self, command: str, payload: dict):
-        """Execute API calls safely with session auto-check and injection."""
+    async def dispatch(self, command: str, payload: dict, corr_id: uuid.UUID):
+        """Execute API calls safely and return response with correlation_id."""
         method_name, endpoint = APPROVED_CALLS[command]
         method = getattr(self.api, method_name)
 
+        ticker = payload.get("ticker", "TSLA")
+        value = payload.get("value", 1)
+        price = payload.get("targetPrice")
+
+        print("dispatch recieved")
+        print("running a mock order")
+        result = await self.api.market_order(ticker, value, price)
+        print(result)
+        print("passed mock")
+
+
         try:
-            # Ensure both demo and live sessions are present
             await self.api.ensure_dual_sessions()
 
-            # Auto-inject x_trader_client and accountId if missing
+            # Auto-inject sensitive IDs
             if "x_trader_client" not in payload:
                 payload["x_trader_client"] = self.client.auth._x_trader
             if "accountId" not in payload:
                 payload["accountId"] = self.client.auth._account_id
 
-            # Execute API method
+            # Execute
             if method_name == "_execute":
                 result = await method(endpoint, **payload)
             else:
-                result = await method(**payload)
+                result = self.api.market_order(payload.get("ticker", "TSLA", payload.get("value", 1)))
+                # result = await method(**payload)
+                print(result)
 
-            # Mask sensitive info before sending to the client/UI
             result = self._mask_sensitive(result)
 
-            await self.client.event_bus.emit(EventType.API_RESPONSE, result)
+            # 4. Emit response using the correlation_id from the original request
+            await event_bus.emit(
+                Event.api_response(
+                    message="success", 
+                    correlation_id=corr_id, 
+                    data=result
+                )
+            )
 
         except Exception as e:
-            await self.client.event_bus.emit(
-                EventType.API_RESPONSE,
-                {"error": f"Dispatch Error: {str(e)}"},
+            print(e)
+            await event_bus.emit(
+                Event.api_response(
+                    message="error", 
+                    correlation_id=corr_id, 
+                    data={"error": f"Dispatch Error: {str(e)}"}
+                )
             )
 
     def _mask_sensitive(self, result):

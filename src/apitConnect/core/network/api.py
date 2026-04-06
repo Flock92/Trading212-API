@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import replace
 
-from src.apitConnect.event import EventType
+from src.apitConnect.event import EventType, event_bus
 from src.apitConnect.models.model import _Client, FetchScript
 from src.apitConnect.core.endpoint import (
     ACCOUNT_ENDPOINT,
@@ -27,9 +27,14 @@ class Api:
     # Core Execute Method
     async def _execute(self, request_template: FetchScript, **updates):
         """Clone and execute a FetchScript using client.page/session headers."""
+        print("execute")
         # Inject base URL
         req = replace(request_template, base=self.service_url, **updates)
         req.validate()
+
+        print(req)
+
+        self.client.page.evaluate(req)
 
         # Execute request using the _Client instance
         if not hasattr(self.client, "request"):
@@ -60,16 +65,17 @@ class Api:
         return await self._execute(ADDITIONAL_INFO, **payload)
 
     # REST V2
-    async def market_order(self, symbol: str, quantity: str):
-        xtc = self.client.auth._x_trader
-        data = await self._execute(
-            MARKET_VALUE_ORDER_ENDPOINT,
-            body={"ticker": symbol, "value": quantity, "targetPrice": 0},
-            x_trader_client=xtc,
-        )
-        if self.event_bus:
-            await self.event_bus.emit(EventType.API_RESPONSE, {"data": data})
-        return data
+    async def market_order(self, symbol: str, quantity: str, price: float):
+        print("market order")
+        try:
+            data = {"ticker": symbol, "value": quantity, "targetPrice": price}
+            await self._execute(
+                request_template=MARKET_VALUE_ORDER_ENDPOINT,updates=data
+            )
+        except Exception as e:
+            print("here",e)
+
+        print("ran a fetch")
 
     async def close_position(self, symbol: str):
         xtc = self.client.auth._x_trader
