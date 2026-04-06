@@ -22,6 +22,7 @@ Install the package via pip:
 
 ```bash
 pip install apit212
+```
 
 🚀 Quick Start: Running the Dashboard
 
